@@ -3,21 +3,50 @@
     "id": "t_1",
     "title": "Midnight Drive",
     "author": "Pulse Logistics",
+    "collaborators": null,
+    "feats": null,
     "cover": "https://via.placeholder.com/150/111/fff?text=Midnight",
-    "file_name": "test"
+    "file_name": "test",
+    "plays": 0,
+    "likes": 0
   },
   {
     "id": "t_2",
     "title": "Obsidian Echo",
     "author": "VoidMusic",
+    "collaborators": null,
+    "feats": null,
     "cover": "https://via.placeholder.com/150/222/fff?text=Obsidian",
-    "file_name": "test2"
+    "file_name": "test2",
+    "plays": 0,
+    "likes": 0
   },
   {
     "id": "t_1784924805",
     "title": "My Track #1",
     "author": "Индия \u0026 Xcho \u0026 MOT",
+    "collaborators": null,
+    "feats": null,
     "cover": "https://bipbap.ru/wp-content/uploads/2017/04/0_7c779_5df17311_orig.jpg",
-    "file_name": "t_1784924805"
+    "file_name": "t_1784924805",
+    "plays": 0,
+    "likes": 0
+  },
+  {
+    "id": "t_1784925810",
+    "title": "kljkljkl",
+    "author": "yaayex",
+    "collaborators": [
+      "Индия",
+      "Test",
+      "Test2"
+    ],
+    "feats": [
+      "Тимати"
+    ],
+    "cover": "/covers/t_1784925810.png",
+    "file_name": "t_1784925810",
+    "plays": 1,
+    "likes": 0
   }
 ]

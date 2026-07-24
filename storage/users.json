@@ -4,20 +4,26 @@
     "username": "admin",
     "email": "",
     "password": "123",
-    "role": "admin"
+    "role": "admin",
+    "app_status": "",
+    "app_reason": ""
   },
   {
     "id": "u_2",
     "username": "listener",
     "email": "",
     "password": "password",
-    "role": "user"
+    "role": "user",
+    "app_status": "",
+    "app_reason": ""
   },
   {
     "id": "u_1784925459",
     "username": "yaayex",
     "email": "yaayex@gmail.com",
     "password": "123123",
-    "role": "user"
+    "role": "artist",
+    "app_status": "approved",
+    "app_reason": ""
   }
 ]
