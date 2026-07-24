@@ -34,7 +34,6 @@
         #main-app { display: none; }
         #admin-link-container { display: none; } 
 
-        /* Стили формы загрузки */
         .admin-form {
             background: #121212; padding: 25px; border-radius: 8px; max-width: 500px;
         }
@@ -100,12 +99,10 @@
                 </div>
             </header>
 
-            <!-- Секция 1: Список треков -->
-            <section class="tracks-container" id="tracks-section">
-                <!-- Сюда JS будет динамически вставлять треки -->
-            </section>
+            <!-- Список треков -->
+            <section class="tracks-container" id="tracks-section"></section>
 
-            <!-- Секция 2: Админ панель (Скрыта) -->
+            <!-- Админ панель -->
             <section id="admin-section" style="display: none;">
                 <div class="admin-form">
                     <h3 style="margin-bottom: 20px;">Загрузить новый трек</h3>
@@ -116,8 +113,9 @@
                         <label>Автор (Артист)</label>
                         <input type="text" name="author" required placeholder="Например: Pulse Logistics">
                         
-                        <label>Ссылка на обложку (URL)</label>
-                        <input type="url" name="cover" required placeholder="https://example.com/cover.jpg">
+                        <!-- ИЗМЕНЕНИЕ: Теперь это загрузка файла картинки -->
+                        <label>Обложка трека (Картинка)</label>
+                        <input type="file" name="cover_file" accept="image/*" required>
                         
                         <label>Аудио файл (.mp3)</label>
                         <input type="file" name="audio_file" accept=".mp3" required>

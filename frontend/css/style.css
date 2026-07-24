@@ -1,7 +1,7 @@
 :root {
-    --bg-dark: #000000;         /* Глубокий черный фон */
-    --bg-panel: #121212;        /* Чуть светлее для панелей */
-    --accent: #8a2be2;          /* Неоновый фиолетовый акцент */
+    --bg-dark: #000000;
+    --bg-panel: #121212;
+    --accent: #8a2be2;
     --text-main: #ffffff;
     --text-muted: #a7a7a7;
     --font-family: 'Montserrat', sans-serif;
@@ -17,10 +17,9 @@ body {
     font-family: var(--font-family);
     background-color: var(--bg-dark);
     color: var(--text-main);
-    overflow: hidden; /* Чтобы не было общего скролла, скроллится только контент */
+    overflow: hidden;
 }
 
-/* Сетка приложения */
 .app-container {
     display: grid;
     grid-template-columns: 240px 1fr;
@@ -28,7 +27,6 @@ body {
     height: 100vh;
 }
 
-/* Боковое меню */
 .sidebar {
     background-color: var(--bg-dark);
     padding: 24px;
@@ -69,7 +67,6 @@ body {
     color: var(--text-main);
 }
 
-/* Главная область */
 .main-content {
     background: linear-gradient(to bottom, #1a1a1a, var(--bg-dark));
     padding: 20px 30px;
@@ -88,7 +85,6 @@ body {
     cursor: pointer;
 }
 
-/* Сетка треков */
 .tracks-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -160,7 +156,6 @@ body {
     color: var(--text-muted);
 }
 
-/* Плеер (эффект матового стекла) */
 .player-bar {
     grid-column: 1 / -1;
     background-color: rgba(18, 18, 18, 0.9);
@@ -179,8 +174,12 @@ body {
     width: 30%;
 }
 
+/* ИСПРАВЛЕНИЕ РАЗМЕРА ОБЛОЖКИ В ПЛЕЕРЕ */
 .now-playing img {
+    width: 56px;
+    height: 56px;
     border-radius: 4px;
+    object-fit: cover;
 }
 
 .player-controls {

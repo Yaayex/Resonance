@@ -15,14 +15,24 @@ import (
 )
 
 func main() {
+	// Создаем папки при старте сервера на случай, если их еще нет
+	os.MkdirAll(filepath.Join(".", "storage", "audio"), os.ModePerm)
+	os.MkdirAll(filepath.Join(".", "storage", "covers"), os.ModePerm)
+
 	mux := http.NewServeMux()
 
 	trackRepo := repository.NewJSONTrackRepo("./storage/db.json")
 	userRepo := repository.NewJSONUserRepo("./storage/users.json")
 
+	// Раздача фронтенда
 	fs := http.FileServer(http.Dir("./frontend"))
 	mux.Handle("/", fs)
 
+	// РАЗДАЧА ОБЛОЖЕК КАК СТАТИКИ
+	coversFS := http.FileServer(http.Dir("./storage/covers"))
+	mux.Handle("/covers/", http.StripPrefix("/covers/", coversFS))
+
+	// API маршруты
 	mux.HandleFunc("/api/stream", streamAudioHandler)
 
 	mux.HandleFunc("/api/tracks", func(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +43,6 @@ func main() {
 		loginHandler(w, r, userRepo)
 	})
 
-	// Новый маршрут для загрузки треков (Админка)
 	mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) {
 		uploadHandler(w, r, trackRepo)
 	})
@@ -113,14 +122,14 @@ func loginHandler(w http.ResponseWriter, r *http.Request, repo repository.UserRe
 	json.NewEncoder(w).Encode(response)
 }
 
-// Обработчик загрузки нового трека
+// ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАГРУЗКИ
 func uploadHandler(w http.ResponseWriter, r *http.Request, repo repository.TrackRepository) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Только POST", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Парсим multipart форму (лимит 20 МБ)
+	// Парсим форму (лимит 20 МБ)
 	err := r.ParseMultipartForm(20 << 20)
 	if err != nil {
 		http.Error(w, "Ошибка парсинга формы", http.StatusBadRequest)
@@ -129,42 +138,62 @@ func uploadHandler(w http.ResponseWriter, r *http.Request, repo repository.Track
 
 	title := r.FormValue("title")
 	author := r.FormValue("author")
-	cover := r.FormValue("cover")
 
-	// Получаем файл из поля "audio_file"
-	file, _, err := r.FormFile("audio_file")
-	if err != nil {
-		http.Error(w, "Ошибка получения файла", http.StatusBadRequest)
-		return
-	}
-	defer file.Close()
-
-	// Генерируем уникальный ID на основе времени (например: t_1690000000)
+	// Генерируем уникальный ID для трека
 	trackID := fmt.Sprintf("t_%d", time.Now().Unix())
-	fileName := trackID
 
-	// Путь сохранения: ./storage/audio/t_1690000000.mp3
-	audioPath := filepath.Join(".", "storage", "audio", fileName+".mp3")
-	dst, err := os.Create(audioPath)
+	// 1. ПОЛУЧАЕМ И СОХРАНЯЕМ ОБЛОЖКУ
+	coverFile, coverHeader, err := r.FormFile("cover_file")
 	if err != nil {
-		http.Error(w, "Ошибка сохранения файла на сервере", http.StatusInternalServerError)
+		http.Error(w, "Ошибка получения обложки", http.StatusBadRequest)
 		return
 	}
-	defer dst.Close()
+	defer coverFile.Close()
 
-	// Копируем байты из загруженного файла на диск
-	if _, err := io.Copy(dst, file); err != nil {
-		http.Error(w, "Ошибка записи файла", http.StatusInternalServerError)
-		return
+	// Узнаем расширение картинки (например, .jpg или .png)
+	coverExt := filepath.Ext(coverHeader.Filename)
+	if coverExt == "" {
+		coverExt = ".jpg" // Фолбэк, если расширения нет
 	}
 
-	// Создаем модель и сохраняем в JSON
+	coverFileName := trackID + coverExt
+	coverPath := filepath.Join(".", "storage", "covers", coverFileName)
+
+	dstCover, err := os.Create(coverPath)
+	if err != nil {
+		http.Error(w, "Ошибка сохранения обложки", http.StatusInternalServerError)
+		return
+	}
+	defer dstCover.Close()
+	io.Copy(dstCover, coverFile)
+
+	// URL обложки для БД
+	coverURL := "/covers/" + coverFileName
+
+	// 2. ПОЛУЧАЕМ И СОХРАНЯЕМ АУДИОФАЙЛ
+	audioFile, _, err := r.FormFile("audio_file")
+	if err != nil {
+		http.Error(w, "Ошибка получения аудиофайла", http.StatusBadRequest)
+		return
+	}
+	defer audioFile.Close()
+
+	audioPath := filepath.Join(".", "storage", "audio", trackID+".mp3")
+	dstAudio, err := os.Create(audioPath)
+	if err != nil {
+		http.Error(w, "Ошибка сохранения аудио", http.StatusInternalServerError)
+		return
+	}
+	defer dstAudio.Close()
+	io.Copy(dstAudio, audioFile)
+
+	// 3. СОХРАНЯЕМ В JSON БАЗУ
 	newTrack := models.Track{
 		ID:       trackID,
 		Title:    title,
 		Author:   author,
-		Cover:    cover,
-		FileName: fileName,
+		Cover:    coverURL,
+		FileName: trackID,
 	}
 
 	if err := repo.Add(newTrack); err != nil {
