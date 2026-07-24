@@ -1,25 +1,32 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"resonance/internal/repository" // Не забудь поменять "resonance" на свой модуль
 )
 
 func main() {
-	// Создаем роутер
 	mux := http.NewServeMux()
 
-	// 1. Раздача фронтенда (HTML, CSS, JS)
-	// http.FileServer берет файлы из папки ./frontend и отдает их браузеру
+	// Инициализируем наш репозиторий
+	trackRepo := repository.NewJSONTrackRepo("./storage/db.json")
+
 	fs := http.FileServer(http.Dir("./frontend"))
 	mux.Handle("/", fs)
 
-	// 2. API для стриминга аудио
+	// API маршруты
 	mux.HandleFunc("/api/stream", streamAudioHandler)
 
-	// Запуск сервера
+	// Новый маршрут для получения списка треков
+	mux.HandleFunc("/api/tracks", func(w http.ResponseWriter, r *http.Request) {
+		getTracksHandler(w, r, trackRepo)
+	})
+
 	port := ":8080"
 	log.Printf("Сервер Resonance запущен на http://localhost%s\n", port)
 
@@ -29,6 +36,24 @@ func main() {
 	}
 }
 
+// Обработчик получения всех треков
+func getTracksHandler(w http.ResponseWriter, r *http.Request, repo repository.TrackRepository) {
+	// Запрещаем кэширование JSON ответа (чтобы при добавлении треков список сразу обновлялся)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+
+	tracks, err := repo.GetAll()
+	if err != nil {
+		http.Error(w, "Ошибка чтения базы данных", http.StatusInternalServerError)
+		log.Printf("Ошибка получения треков: %v", err)
+		return
+	}
+
+	// Кодируем структуру Go обратно в JSON и отправляем клиенту
+	json.NewEncoder(w).Encode(tracks)
+}
+
+// ... streamAudioHandler остается без изменений ...
 // Обработчик стриминга аудио
 func streamAudioHandler(w http.ResponseWriter, r *http.Request) {
 	// Получаем ID трека из URL, например: /api/stream?id=test
