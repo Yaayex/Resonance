@@ -217,7 +217,7 @@ body {
 }
 
 .progress-slider, .volume-slider {
-    -webkit-appearance: none;
+    /* -webkit-appearance: none; */
     width: 100%;
     height: 4px;
     background: #535353;
