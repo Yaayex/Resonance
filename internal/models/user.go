@@ -1,22 +1,27 @@
 package models
 
-// User описывает аккаунт в базе данных
 type User struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
-	Password string `json:"password"` // В проде здесь должен быть хэш!
-	Role     string `json:"role"`
+	Email    string `json:"email"`
+	Password string `json:"password"` // В проде нужен хэш!
+	Role     string `json:"role"`     // "user", "artist", "admin"
 }
 
-// LoginRequest описывает JSON, который присылает фронтенд при попытке входа
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-// LoginResponse описывает JSON, который бэкенд отдает при успешном входе
+type RegisterRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 type LoginResponse struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
+	Email    string `json:"email"`
 	Role     string `json:"role"`
 }

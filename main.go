@@ -15,192 +15,98 @@ import (
 )
 
 func main() {
-	// Создаем папки при старте сервера на случай, если их еще нет
 	os.MkdirAll(filepath.Join(".", "storage", "audio"), os.ModePerm)
 	os.MkdirAll(filepath.Join(".", "storage", "covers"), os.ModePerm)
 
 	mux := http.NewServeMux()
-
 	trackRepo := repository.NewJSONTrackRepo("./storage/db.json")
 	userRepo := repository.NewJSONUserRepo("./storage/users.json")
 
-	// Раздача фронтенда
-	fs := http.FileServer(http.Dir("./frontend"))
-	mux.Handle("/", fs)
+	mux.Handle("/", http.FileServer(http.Dir("./frontend")))
+	mux.Handle("/covers/", http.StripPrefix("/covers/", http.FileServer(http.Dir("./storage/covers"))))
 
-	// РАЗДАЧА ОБЛОЖЕК КАК СТАТИКИ
-	coversFS := http.FileServer(http.Dir("./storage/covers"))
-	mux.Handle("/covers/", http.StripPrefix("/covers/", coversFS))
-
-	// API маршруты
 	mux.HandleFunc("/api/stream", streamAudioHandler)
-
-	mux.HandleFunc("/api/tracks", func(w http.ResponseWriter, r *http.Request) {
-		getTracksHandler(w, r, trackRepo)
-	})
-
-	mux.HandleFunc("/api/login", func(w http.ResponseWriter, r *http.Request) {
-		loginHandler(w, r, userRepo)
-	})
-
-	mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) {
-		uploadHandler(w, r, trackRepo)
-	})
+	mux.HandleFunc("/api/tracks", func(w http.ResponseWriter, r *http.Request) { getTracksHandler(w, r, trackRepo) })
+	mux.HandleFunc("/api/login", func(w http.ResponseWriter, r *http.Request) { loginHandler(w, r, userRepo) })
+	mux.HandleFunc("/api/register", func(w http.ResponseWriter, r *http.Request) { registerHandler(w, r, userRepo) })
+	mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) { uploadHandler(w, r, trackRepo) })
 
 	port := ":8080"
-	log.Printf("Сервер Resonance запущен на http://localhost%s\n", port)
-
-	err := http.ListenAndServe(port, mux)
-	if err != nil {
-		log.Fatalf("Ошибка запуска сервера: %v", err)
-	}
+	log.Printf("Сервер запущен на http://localhost%s\n", port)
+	http.ListenAndServe(port, mux)
 }
 
 func streamAudioHandler(w http.ResponseWriter, r *http.Request) {
 	trackID := r.URL.Query().Get("id")
-	if trackID == "" {
-		http.Error(w, "Не указан ID трека", http.StatusBadRequest)
-		return
-	}
-
 	audioPath := filepath.Join(".", "storage", "audio", trackID+".mp3")
-
 	if _, err := os.Stat(audioPath); os.IsNotExist(err) {
 		http.Error(w, "Трек не найден", http.StatusNotFound)
 		return
 	}
-
 	http.ServeFile(w, r, audioPath)
 }
 
 func getTracksHandler(w http.ResponseWriter, r *http.Request, repo repository.TrackRepository) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
-
-	tracks, err := repo.GetAll()
-	if err != nil {
-		http.Error(w, "Ошибка чтения базы данных", http.StatusInternalServerError)
-		return
-	}
-
+	tracks, _ := repo.GetAll()
 	json.NewEncoder(w).Encode(tracks)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request, repo repository.UserRepository) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Метод не поддерживается", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
 	var req models.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error": "Неверный формат запроса"}`, http.StatusBadRequest)
-		return
-	}
-
+	json.NewDecoder(r.Body).Decode(&req)
 	user, err := repo.GetByUsername(req.Username)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error": "Неверный логин или пароль"}`))
+	if err != nil || user.Password != req.Password {
+		http.Error(w, `{"error": "Неверный логин или пароль"}`, http.StatusUnauthorized)
 		return
 	}
-
-	if user.Password != req.Password {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error": "Неверный логин или пароль"}`))
-		return
-	}
-
-	response := models.LoginResponse{
-		ID:       user.ID,
-		Username: user.Username,
-		Role:     user.Role,
-	}
-
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(models.LoginResponse{ID: user.ID, Username: user.Username, Email: user.Email, Role: user.Role})
 }
 
-// ОБНОВЛЕННЫЙ ОБРАБОТЧИК ЗАГРУЗКИ
+func registerHandler(w http.ResponseWriter, r *http.Request, repo repository.UserRepository) {
+	var req models.RegisterRequest
+	json.NewDecoder(r.Body).Decode(&req)
+	newUser := models.User{
+		ID:       fmt.Sprintf("u_%d", time.Now().Unix()),
+		Username: req.Username,
+		Email:    req.Email,
+		Password: req.Password,
+		Role:     "user", // По умолчанию все обычные слушатели
+	}
+	if err := repo.AddUser(newUser); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+	json.NewEncoder(w).Encode(models.LoginResponse{ID: newUser.ID, Username: newUser.Username, Email: newUser.Email, Role: newUser.Role})
+}
+
 func uploadHandler(w http.ResponseWriter, r *http.Request, repo repository.TrackRepository) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Только POST", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Парсим форму (лимит 20 МБ)
-	err := r.ParseMultipartForm(20 << 20)
-	if err != nil {
-		http.Error(w, "Ошибка парсинга формы", http.StatusBadRequest)
-		return
-	}
-
-	title := r.FormValue("title")
-	author := r.FormValue("author")
-
-	// Генерируем уникальный ID для трека
+	r.ParseMultipartForm(20 << 20)
 	trackID := fmt.Sprintf("t_%d", time.Now().Unix())
 
-	// 1. ПОЛУЧАЕМ И СОХРАНЯЕМ ОБЛОЖКУ
-	coverFile, coverHeader, err := r.FormFile("cover_file")
-	if err != nil {
-		http.Error(w, "Ошибка получения обложки", http.StatusBadRequest)
-		return
-	}
+	coverFile, coverHeader, _ := r.FormFile("cover_file")
 	defer coverFile.Close()
-
-	// Узнаем расширение картинки (например, .jpg или .png)
 	coverExt := filepath.Ext(coverHeader.Filename)
-	if coverExt == "" {
-		coverExt = ".jpg" // Фолбэк, если расширения нет
-	}
-
-	coverFileName := trackID + coverExt
-	coverPath := filepath.Join(".", "storage", "covers", coverFileName)
-
-	dstCover, err := os.Create(coverPath)
-	if err != nil {
-		http.Error(w, "Ошибка сохранения обложки", http.StatusInternalServerError)
-		return
-	}
-	defer dstCover.Close()
+	coverPath := filepath.Join(".", "storage", "covers", trackID+coverExt)
+	dstCover, _ := os.Create(coverPath)
 	io.Copy(dstCover, coverFile)
+	dstCover.Close()
 
-	// URL обложки для БД
-	coverURL := "/covers/" + coverFileName
-
-	// 2. ПОЛУЧАЕМ И СОХРАНЯЕМ АУДИОФАЙЛ
-	audioFile, _, err := r.FormFile("audio_file")
-	if err != nil {
-		http.Error(w, "Ошибка получения аудиофайла", http.StatusBadRequest)
-		return
-	}
+	audioFile, _, _ := r.FormFile("audio_file")
 	defer audioFile.Close()
-
 	audioPath := filepath.Join(".", "storage", "audio", trackID+".mp3")
-	dstAudio, err := os.Create(audioPath)
-	if err != nil {
-		http.Error(w, "Ошибка сохранения аудио", http.StatusInternalServerError)
-		return
-	}
-	defer dstAudio.Close()
+	dstAudio, _ := os.Create(audioPath)
 	io.Copy(dstAudio, audioFile)
+	dstAudio.Close()
 
-	// 3. СОХРАНЯЕМ В JSON БАЗУ
 	newTrack := models.Track{
 		ID:       trackID,
-		Title:    title,
-		Author:   author,
-		Cover:    coverURL,
+		Title:    r.FormValue("title"),
+		Author:   r.FormValue("author"),
+		Cover:    "/covers/" + trackID + coverExt,
 		FileName: trackID,
 	}
-
-	if err := repo.Add(newTrack); err != nil {
-		http.Error(w, "Ошибка сохранения в БД", http.StatusInternalServerError)
-		return
-	}
-
+	repo.Add(newTrack)
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"status": "успешно"}`))
 }

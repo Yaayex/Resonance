@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"resonance/internal/models" // Замени на свой модуль
 	"sync"
-
-	"resonance/internal/models" // Замени "resonance" на имя твоего модуля
 )
 
 type UserRepository interface {
 	GetByUsername(username string) (*models.User, error)
+	AddUser(user models.User) error
 }
 
 type JSONUserRepo struct {
@@ -19,12 +19,9 @@ type JSONUserRepo struct {
 }
 
 func NewJSONUserRepo(path string) *JSONUserRepo {
-	return &JSONUserRepo{
-		filePath: path,
-	}
+	return &JSONUserRepo{filePath: path}
 }
 
-// GetByUsername ищет пользователя по логину
 func (r *JSONUserRepo) GetByUsername(username string) (*models.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -44,6 +41,30 @@ func (r *JSONUserRepo) GetByUsername(username string) (*models.User, error) {
 			return &u, nil
 		}
 	}
-
 	return nil, errors.New("пользователь не найден")
+}
+
+func (r *JSONUserRepo) AddUser(user models.User) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	data, err := os.ReadFile(r.filePath)
+	var users []models.User
+	if err == nil {
+		json.Unmarshal(data, &users)
+	}
+
+	// Проверка на уникальность
+	for _, u := range users {
+		if u.Username == user.Username {
+			return errors.New("пользователь с таким логином уже существует")
+		}
+	}
+
+	users = append(users, user)
+	newData, err := json.MarshalIndent(users, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(r.filePath, newData, 0644)
 }
