@@ -8,7 +8,8 @@
     "cover": "https://via.placeholder.com/150/111/fff?text=Midnight",
     "file_name": "test",
     "plays": 0,
-    "likes": 0
+    "hidden": false,
+    "release_date": 0
   },
   {
     "id": "t_2",
@@ -19,7 +20,8 @@
     "cover": "https://via.placeholder.com/150/222/fff?text=Obsidian",
     "file_name": "test2",
     "plays": 0,
-    "likes": 0
+    "hidden": false,
+    "release_date": 0
   },
   {
     "id": "t_1784924805",
@@ -30,7 +32,8 @@
     "cover": "https://bipbap.ru/wp-content/uploads/2017/04/0_7c779_5df17311_orig.jpg",
     "file_name": "t_1784924805",
     "plays": 1,
-    "likes": 0
+    "hidden": false,
+    "release_date": 0
   },
   {
     "id": "t_1784925810",
@@ -47,6 +50,7 @@
     "cover": "/covers/t_1784925810.png",
     "file_name": "t_1784925810",
     "plays": 1,
-    "likes": 0
+    "hidden": false,
+    "release_date": 0
   }
 ]
