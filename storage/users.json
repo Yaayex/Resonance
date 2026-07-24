@@ -2,13 +2,22 @@
   {
     "id": "u_1",
     "username": "admin",
+    "email": "",
     "password": "123",
     "role": "admin"
   },
   {
     "id": "u_2",
     "username": "listener",
+    "email": "",
     "password": "password",
+    "role": "user"
+  },
+  {
+    "id": "u_1784925459",
+    "username": "yaayex",
+    "email": "yaayex@gmail.com",
+    "password": "123123",
     "role": "user"
   }
 ]

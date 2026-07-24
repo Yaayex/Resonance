@@ -4,78 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resonance</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
-    
-    <style>
-        /* Стили экрана входа (остаются прежними) */
-        #login-screen {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: #000000; display: flex; align-items: center; justify-content: center;
-            z-index: 1000; color: white; font-family: 'Montserrat', sans-serif;
-        }
-        .login-box {
-            background: #121212; padding: 40px; border-radius: 8px;
-            width: 320px; text-align: center; border: 1px solid rgba(255,255,255,0.1);
-        }
-        .login-box input {
-            width: 100%; padding: 12px; margin: 10px 0; background: #000; 
-            border: 1px solid #333; color: white; border-radius: 4px; outline: none;
-            font-family: inherit;
-        }
-        .login-box input:focus { border-color: #8a2be2; }
-        .login-box button {
-            width: 100%; padding: 12px; background: #8a2be2; border: none; 
-            color: white; font-weight: bold; border-radius: 4px; cursor: pointer; 
-            margin-top: 15px; transition: 0.3s;
-        }
-        .login-box button:hover { background: #6a1b9a; }
-        
-        #main-app { display: none; }
-        #admin-link-container { display: none; } 
-
-        .admin-form { background: #121212; padding: 25px; border-radius: 8px; max-width: 500px; }
-        .admin-form label { display: block; margin-bottom: 8px; font-weight: 600; color: #a7a7a7; font-size: 14px; }
-        .admin-form input { width: 100%; padding: 12px; margin-bottom: 20px; background: #000; border: 1px solid #333; color: white; border-radius: 4px; }
-        .admin-form button { width: 100%; padding: 12px; background: #8a2be2; border: none; color: white; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; }
-        .admin-form button:hover { background: #6a1b9a; }
-        
-        /* Поле только для чтения */
-        .admin-form input[readonly] { background: #1a1a1a; cursor: not-allowed; color: #888; border-color: #222;}
-    </style>
 </head>
 <body>
 
-    <!-- Экран входа -->
-    <div id="login-screen">
-        <div class="login-box">
-            <h2 style="margin-bottom: 5px;"><i class="fa-solid fa-wave-square" style="color: #8a2be2;"></i> Resonance</h2>
-            <p style="margin-bottom: 25px; color: #a7a7a7; font-size: 14px;">Вход в систему</p>
-            
-            <input type="text" id="username-input" placeholder="Логин (admin)">
-            <input type="password" id="password-input" placeholder="Пароль (123)">
-            <button id="login-btn">Войти</button>
+    <!-- ЭКРАН АВТОРИЗАЦИИ (Login / Register) -->
+    <div id="auth-screen">
+        <!-- Форма Входа -->
+        <div class="auth-box" id="login-box">
+            <h2 class="auth-logo"><i class="fa-solid fa-wave-square"></i> Resonance</h2>
+            <p class="auth-subtitle">Вход в систему</p>
+            <input type="text" id="login-username" placeholder="Логин">
+            <input type="password" id="login-password" placeholder="Пароль">
+            <button class="auth-btn" id="login-btn">Войти</button>
+            <p class="auth-switch">Нет аккаунта? <a href="#" id="show-register">Создать</a></p>
+        </div>
+
+        <!-- Форма Регистрации -->
+        <div class="auth-box" id="register-box" style="display: none;">
+            <h2 class="auth-logo"><i class="fa-solid fa-wave-square"></i> Resonance</h2>
+            <p class="auth-subtitle">Создать аккаунт</p>
+            <input type="text" id="reg-username" placeholder="Имя пользователя (Логин)">
+            <input type="email" id="reg-email" placeholder="Email">
+            <input type="password" id="reg-password" placeholder="Пароль">
+            <button class="auth-btn" id="register-btn">Зарегистрироваться</button>
+            <p class="auth-switch">Уже есть аккаунт? <a href="#" id="show-login">Войти</a></p>
         </div>
     </div>
 
-    <!-- Основной интерфейс -->
+    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
     <div id="main-app" class="app-container">
+        
+        <!-- Шапка для мобилок -->
+        <header class="mobile-header">
+            <div class="logo"><i class="fa-solid fa-wave-square"></i> Resonance</div>
+            <button id="mobile-menu-btn"><i class="fa-solid fa-bars"></i></button>
+        </header>
+
         <!-- Боковое меню -->
-        <aside class="sidebar">
-            <div class="logo" id="logo-link" style="cursor: pointer;">
-                <i class="fa-solid fa-wave-square"></i>
-                <span>Resonance</span>
+        <aside class="sidebar" id="sidebar">
+            <button id="mobile-close-btn" class="mobile-only"><i class="fa-solid fa-xmark"></i></button>
+            <div class="logo desktop-only" id="logo-link" style="cursor: pointer;">
+                <i class="fa-solid fa-wave-square"></i> Resonance
             </div>
+            
+            <div class="rank-badge" id="user-rank-badge">Слушатель</div>
+
             <nav class="menu">
                 <a href="#" class="active" id="nav-home"><i class="fa-solid fa-house"></i> Главная</a>
                 <a href="#" id="nav-search"><i class="fa-solid fa-magnifying-glass"></i> Поиск</a>
-                <a href="#" id="nav-library"><i class="fa-solid fa-book"></i> Моя медиатека</a>
+                <a href="#" id="nav-library"><i class="fa-solid fa-book"></i> Медиатека</a>
             </nav>
             
             <div style="margin-top: auto; display: flex; flex-direction: column; gap: 15px;">
-                <div class="admin-link" id="admin-link-container">
-                    <a href="#" style="color: #8a2be2;" id="nav-admin"><i class="fa-solid fa-gear"></i> Админ-панель</a>
+                <!-- Кнопки ролей -->
+                <div class="role-link" id="nav-upload-container" style="display: none;">
+                    <a href="#" id="nav-upload" style="color: #00d2ff;"><i class="fa-solid fa-microphone"></i> Студия (Загрузка)</a>
+                </div>
+                <div class="role-link" id="nav-admin-container" style="display: none;">
+                    <a href="#" id="nav-admin" style="color: #ff4d4d;"><i class="fa-solid fa-shield-halved"></i> Админ-панель</a>
                 </div>
             </div>
         </aside>
@@ -85,76 +74,90 @@
             <header class="topbar">
                 <h2 id="page-title">Для вас</h2>
                 
-                <!-- Блок пользователя с выпадающим меню -->
                 <div class="user-profile-wrapper" id="profile-btn">
                     <span id="user-profile-name">Гость</span>
-                    <div class="avatar-circle">
-                        <i class="fa-solid fa-user"></i>
-                    </div>
+                    <div class="avatar-circle"><i class="fa-solid fa-user"></i></div>
                     
-                    <!-- Само всплывающее меню -->
                     <div class="profile-dropdown" id="profile-dropdown">
                         <a href="#" id="drop-home"><i class="fa-solid fa-house"></i> Главная</a>
-                        <a href="#" id="drop-library-link"><i class="fa-solid fa-book"></i> Медиатека</a>
+                        <a href="#" id="drop-library"><i class="fa-solid fa-book"></i> Медиатека</a>
+                        <a href="#" id="drop-settings"><i class="fa-solid fa-gear"></i> Настройки</a>
                         <div class="divider"></div>
                         <a href="#" id="drop-logout" style="color: #ff4d4d;"><i class="fa-solid fa-right-from-bracket"></i> Выйти</a>
                     </div>
                 </div>
             </header>
 
-            <!-- Секция 1: Главная (Список всех треков) -->
+            <!-- 1: Главная -->
             <section class="tracks-container" id="tracks-section"></section>
 
-            <!-- Секция 2: Поиск -->
+            <!-- 2: Поиск -->
             <section id="search-section" style="display: none;">
                 <div class="search-header">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="search-input" placeholder="Что вы хотите послушать? Введите название или автора...">
+                    <input type="text" id="search-input" placeholder="Поиск по названию или автору...">
                 </div>
-                <div class="tracks-container" id="search-results-section" style="margin-top: 30px;">
-                    <!-- Результаты поиска -->
-                </div>
+                <div class="tracks-container" id="search-results-section" style="margin-top: 30px;"></div>
             </section>
 
-            <!-- Секция 3: Медиатека -->
+            <!-- 3: Медиатека -->
             <section id="library-section" style="display: none;">
-                <p style="color: #a7a7a7; margin-bottom: 20px;">Здесь отображаются треки, загруженные вами.</p>
-                <div class="tracks-container" id="library-results-section">
-                    <!-- Треки пользователя -->
+                <p class="section-desc">Треки, загруженные вами.</p>
+                <div class="tracks-container" id="library-results-section"></div>
+            </section>
+
+            <!-- 4: Настройки -->
+            <section id="settings-section" style="display: none;">
+                <div class="content-form">
+                    <h3>Настройки аккаунта</h3>
+                    <label>Имя пользователя</label>
+                    <input type="text" id="set-username" readonly>
+                    <label>Email</label>
+                    <input type="email" id="set-email" readonly>
+                    
+                    <div class="divider" style="margin: 30px 0;"></div>
+                    
+                    <h3>Статус артиста</h3>
+                    <p class="section-desc">Получите галочку артиста, чтобы загружать свои треки в Resonance.</p>
+                    <button class="action-btn" id="request-artist-btn">Подать заявку на верификацию</button>
                 </div>
             </section>
 
-            <!-- Секция 4: Админ панель -->
-            <section id="admin-section" style="display: none;">
-                <div class="admin-form">
-                    <h3 style="margin-bottom: 20px;">Загрузить новый трек</h3>
+            <!-- 5: Загрузка трека (Студия) -->
+            <section id="upload-section" style="display: none;">
+                <div class="content-form">
+                    <h3>Загрузить новый трек</h3>
                     <form id="upload-form">
                         <label>Название трека</label>
                         <input type="text" name="title" required placeholder="Например: Midnight Drive">
-                        
                         <label>Автор (Артист)</label>
-                        <!-- ИЗМЕНЕНИЕ: Поле только для чтения -->
                         <input type="text" name="author" id="admin-author-input" readonly>
-                        
-                        <label>Обложка трека (Картинка)</label>
+                        <label>Обложка (Картинка)</label>
                         <input type="file" name="cover_file" accept="image/*" required>
-                        
                         <label>Аудио файл (.mp3)</label>
                         <input type="file" name="audio_file" accept=".mp3" required>
-                        
-                        <button type="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Загрузить трек</button>
+                        <button type="submit" class="action-btn"><i class="fa-solid fa-cloud-arrow-up"></i> Опубликовать</button>
                     </form>
+                </div>
+            </section>
+
+            <!-- 6: Админка (Управление) -->
+            <section id="admin-section" style="display: none;">
+                <div class="content-form" style="max-width: 100%;">
+                    <h3>Управление платформой</h3>
+                    <p class="section-desc">Здесь администратор может удалять треки и выдавать роли. (Интерфейс в разработке)</p>
+                    <!-- В будущем здесь будет таблица треков с кнопками "Удалить" -->
                 </div>
             </section>
         </main>
 
-        <!-- Нижняя панель плеера -->
-        <footer class="player-bar">
+        <!-- ПЛАВАЮЩИЙ ПЛЕЕР (Скрыт по умолчанию) -->
+        <div class="floating-player" id="floating-player">
             <div class="now-playing">
-                <img src="https://via.placeholder.com/56/111" alt="Cover" id="player-cover">
+                <img src="" alt="Cover" id="player-cover">
                 <div class="track-meta">
-                    <h4 id="player-title">Не выбрано</h4>
-                    <p id="player-author">—</p>
+                    <h4 id="player-title">Track</h4>
+                    <p id="player-author">Author</p>
                 </div>
             </div>
             
@@ -175,7 +178,7 @@
                 <i class="fa-solid fa-volume-high"></i>
                 <input type="range" min="0" max="100" value="80" class="volume-slider">
             </div>
-        </footer>
+        </div>
     </div>
 
     <script src="js/app.js"></script>
