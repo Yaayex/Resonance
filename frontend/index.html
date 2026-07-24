@@ -10,7 +10,6 @@
 </head>
 <body>
 
-    <!-- ЭКРАН АВТОРИЗАЦИИ -->
     <div id="auth-screen">
         <div class="auth-box" id="login-box">
             <h2 class="auth-logo"><i class="fa-solid fa-wave-square"></i> Resonance</h2>
@@ -31,14 +30,12 @@
         </div>
     </div>
 
-    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
     <div id="main-app" class="app-container">
         <header class="mobile-header">
             <div class="logo"><i class="fa-solid fa-wave-square"></i> Resonance</div>
             <button id="mobile-menu-btn"><i class="fa-solid fa-bars"></i></button>
         </header>
 
-        <!-- Сайдбар -->
         <aside class="sidebar" id="sidebar">
             <button id="mobile-close-btn" class="mobile-only"><i class="fa-solid fa-xmark"></i></button>
             <div class="logo desktop-only" id="logo-link" style="cursor: pointer;">
@@ -69,7 +66,6 @@
                 <div class="user-profile-wrapper" id="profile-btn">
                     <span id="user-profile-name">Гость</span>
                     <div class="avatar-circle"><i class="fa-solid fa-user"></i></div>
-                    
                     <div class="profile-dropdown" id="profile-dropdown">
                         <a href="#" id="drop-home"><i class="fa-solid fa-house"></i> Главная</a>
                         <a href="#" id="drop-settings"><i class="fa-solid fa-gear"></i> Настройки</a>
@@ -79,10 +75,8 @@
                 </div>
             </header>
 
-            <!-- 1. Главная -->
             <section class="tracks-container" id="tracks-section"></section>
 
-            <!-- 2. Поиск -->
             <section id="search-section" style="display: none;">
                 <div class="search-header">
                     <i class="fa-solid fa-magnifying-glass"></i>
@@ -91,12 +85,10 @@
                 <div class="tracks-container" id="search-results-section" style="margin-top: 30px;"></div>
             </section>
 
-            <!-- 3. Медиатека -->
             <section id="library-section" style="display: none;">
                 <div class="tracks-container" id="library-results-section"></div>
             </section>
 
-            <!-- 4. Настройки и Статус заявки -->
             <section id="settings-section" style="display: none;">
                 <div class="content-form">
                     <h3>Настройки аккаунта</h3>
@@ -110,53 +102,80 @@
                     <h3>Статус артиста</h3>
                     <div id="app-status-box" class="status-box"></div>
                     <button class="action-btn" id="request-artist-btn">Подать заявку на верификацию</button>
+                    
+                    <h4 style="margin-top: 25px; margin-bottom: 10px;">История заявок</h4>
+                    <div id="app-history-list" class="history-list"></div>
                 </div>
             </section>
 
-            <!-- 5. Студия (Загрузка трека с коллабами) -->
+            <!-- ОБНОВЛЕННАЯ СТУДИЯ С ПРЕВЬЮ -->
             <section id="upload-section" style="display: none;">
-                <div class="content-form">
-                    <h3>Загрузить новый трек</h3>
-                    <form id="upload-form">
-                        <label>Название трека</label>
-                        <input type="text" name="title" required placeholder="Например: Midnight Drive">
-                        <label>Автор (Вы)</label>
-                        <input type="text" name="author" id="admin-author-input" readonly>
-                        
-                        <label>Соавторы (через запятую, будут отображаться через '&')</label>
-                        <input type="text" name="collaborators" placeholder="Например: DJ Flex, Anna">
-                        
-                        <label>При участии (через запятую, будут отображаться через 'feat.')</label>
-                        <input type="text" name="feats" placeholder="Например: Snoop, Eminem">
+                <div class="upload-grid">
+                    <div class="content-form" style="max-width: 100%;">
+                        <h3>Загрузить новый трек</h3>
+                        <form id="upload-form">
+                            <label>Название трека</label>
+                            <input type="text" id="up-title" name="title" required placeholder="Midnight Drive">
+                            
+                            <label>Автор (Вы)</label>
+                            <input type="text" id="up-author" name="author" readonly>
+                            
+                            <label>Соавторы (&)</label>
+                            <div class="tag-container" id="collabs-container">
+                                <input type="text" class="tag-input" id="collabs-input" placeholder="Поиск артиста..." autocomplete="off">
+                                <ul class="autocomplete-list" id="collabs-autocomplete"></ul>
+                            </div>
+                            <input type="hidden" name="collaborators" id="collabs-hidden">
+                            
+                            <label>При участии (feat.)</label>
+                            <div class="tag-container" id="feats-container">
+                                <input type="text" class="tag-input" id="feats-input" placeholder="Поиск артиста..." autocomplete="off">
+                                <ul class="autocomplete-list" id="feats-autocomplete"></ul>
+                            </div>
+                            <input type="hidden" name="feats" id="feats-hidden">
 
-                        <label>Обложка (Картинка)</label>
-                        <input type="file" name="cover_file" accept="image/*" required>
-                        <label>Аудио файл (.mp3)</label>
-                        <input type="file" name="audio_file" accept=".mp3" required>
-                        <button type="submit" class="action-btn"><i class="fa-solid fa-cloud-arrow-up"></i> Опубликовать</button>
-                    </form>
+                            <label>Запланировать релиз (Опционально)</label>
+                            <input type="datetime-local" id="up-date" name="release_date">
+
+                            <label>Обложка (Картинка)</label>
+                            <input type="file" id="up-cover" name="cover_file" accept="image/*" required>
+                            
+                            <label>Аудио файл (.mp3)</label>
+                            <input type="file" id="up-audio" name="audio_file" accept=".mp3" required>
+                            
+                            <button type="submit" class="action-btn" style="margin-top: 15px;"><i class="fa-solid fa-cloud-arrow-up"></i> Опубликовать</button>
+                        </form>
+                    </div>
+
+                    <!-- Живое превью -->
+                    <div class="preview-wrapper">
+                        <h3>Превью трека</h3>
+                        <div class="track-card preview-card">
+                            <div class="track-cover">
+                                <img src="https://via.placeholder.com/300/222?text=Cover" id="preview-img" alt="Cover">
+                                <button class="play-btn-overlay"><i class="fa-solid fa-play"></i></button>
+                            </div>
+                            <div class="track-info">
+                                <h3 id="preview-title">Название трека</h3>
+                                <p id="preview-authors">Автор</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
-            <!-- 6. Админка (Управление заявками) -->
             <section id="admin-section" style="display: none;">
                 <div class="content-form" style="max-width: 100%;">
                     <h3>Управление заявками артистов</h3>
                     <table class="admin-table">
                         <thead>
-                            <tr>
-                                <th>Пользователь</th>
-                                <th>Email</th>
-                                <th>Статус</th>
-                                <th>Действия</th>
-                            </tr>
+                            <tr><th>Пользователь</th><th>Статус</th><th>Действия</th></tr>
                         </thead>
                         <tbody id="admin-apps-tbody"></tbody>
                     </table>
                 </div>
             </section>
 
-            <!-- 7. Профиль артиста -->
             <section id="artist-profile-section" style="display: none;">
                 <div class="artist-header">
                     <div class="avatar-circle large"><i class="fa-solid fa-music"></i></div>
@@ -169,14 +188,12 @@
                 <div class="tracks-container" id="artist-tracks-container"></div>
             </section>
 
-            <!-- 8. Команда проекта (Контакты) -->
             <section id="staff-section" style="display: none;">
                 <h3 style="margin-bottom: 20px;">Администрация Resonance</h3>
                 <div class="staff-grid" id="staff-grid"></div>
             </section>
         </main>
 
-        <!-- ПЛАВАЮЩИЙ ПЛЕЕР -->
         <div class="floating-player" id="floating-player">
             <div class="now-playing">
                 <img src="" alt="Cover" id="player-cover">

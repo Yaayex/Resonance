@@ -13,30 +13,35 @@ import (
 	"time"
 )
 
-// --- МОДЕЛИ ДАННЫХ ---
+type AppRecord struct {
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+	Date   int64  `json:"date"`
+}
+
+type User struct {
+	ID         string      `json:"id"`
+	Username   string      `json:"username"`
+	Email      string      `json:"email"`
+	Password   string      `json:"password"`
+	Role       string      `json:"role"`
+	AppStatus  string      `json:"app_status"`
+	AppHistory []AppRecord `json:"app_history"`
+}
+
 type Track struct {
 	ID            string   `json:"id"`
 	Title         string   `json:"title"`
 	Author        string   `json:"author"`
-	Collaborators []string `json:"collaborators"` // Соавторы (&)
-	Feats         []string `json:"feats"`         // При участии (feat.)
+	Collaborators []string `json:"collaborators"`
+	Feats         []string `json:"feats"`
 	Cover         string   `json:"cover"`
 	FileName      string   `json:"file_name"`
-	Plays         int      `json:"plays"` // Прослушивания
-	Likes         int      `json:"likes"`
+	Plays         int      `json:"plays"`
+	Hidden        bool     `json:"hidden"`
+	ReleaseDate   int64    `json:"release_date"`
 }
 
-type User struct {
-	ID        string `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
-	Role      string `json:"role"`       // user, artist, admin
-	AppStatus string `json:"app_status"` // none, pending, approved, rejected
-	AppReason string `json:"app_reason"` // Причина отказа
-}
-
-// --- БАЗА ДАННЫХ (In-Memory + JSON) ---
 var (
 	dbMu       sync.RWMutex
 	usersPath  = "./storage/users.json"
@@ -46,45 +51,38 @@ var (
 func readUsers() []User {
 	dbMu.RLock()
 	defer dbMu.RUnlock()
-	data, err := os.ReadFile(usersPath)
+	data, _ := os.ReadFile(usersPath)
 	var users []User
-	if err == nil {
-		json.Unmarshal(data, &users)
-	}
+	json.Unmarshal(data, &users)
 	return users
 }
 
-func writeUsers(users []User) error {
+func writeUsers(users []User) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	data, _ := json.MarshalIndent(users, "", "  ")
-	return os.WriteFile(usersPath, data, 0644)
+	os.WriteFile(usersPath, data, 0644)
 }
 
 func readTracks() []Track {
 	dbMu.RLock()
 	defer dbMu.RUnlock()
-	data, err := os.ReadFile(tracksPath)
+	data, _ := os.ReadFile(tracksPath)
 	var tracks []Track
-	if err == nil {
-		json.Unmarshal(data, &tracks)
-	}
+	json.Unmarshal(data, &tracks)
 	return tracks
 }
 
-func writeTracks(tracks []Track) error {
+func writeTracks(tracks []Track) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	data, _ := json.MarshalIndent(tracks, "", "  ")
-	return os.WriteFile(tracksPath, data, 0644)
+	os.WriteFile(tracksPath, data, 0644)
 }
 
-// --- СЕРВЕР И РОУТИНГ ---
 func main() {
-	os.MkdirAll(filepath.Join(".", "storage", "audio"), os.ModePerm)
-	os.MkdirAll(filepath.Join(".", "storage", "covers"), os.ModePerm)
-
-	// Если файлов БД нет, создаем пустые массивы
+	os.MkdirAll("./storage/audio", os.ModePerm)
+	os.MkdirAll("./storage/covers", os.ModePerm)
 	if _, err := os.Stat(usersPath); os.IsNotExist(err) {
 		writeUsers([]User{})
 	}
@@ -96,32 +94,25 @@ func main() {
 	mux.Handle("/", http.FileServer(http.Dir("./frontend")))
 	mux.Handle("/covers/", http.StripPrefix("/covers/", http.FileServer(http.Dir("./storage/covers"))))
 
-	// API Маршруты
 	mux.HandleFunc("/api/stream", streamAudioHandler)
 	mux.HandleFunc("/api/tracks", getTracksHandler)
 	mux.HandleFunc("/api/login", loginHandler)
 	mux.HandleFunc("/api/register", registerHandler)
 	mux.HandleFunc("/api/upload", uploadHandler)
+	mux.HandleFunc("/api/apply", applyArtistHandler)
+	mux.HandleFunc("/api/admin/apps", getApplicationsHandler)
+	mux.HandleFunc("/api/admin/resolve", resolveAppHandler)
+	mux.HandleFunc("/api/admin/track", adminTrackHandler)
+	mux.HandleFunc("/api/artist", getArtistProfileHandler)
+	mux.HandleFunc("/api/artists", getArtistsListHandler)
+	mux.HandleFunc("/api/staff", getStaffHandler)
 
-	// Новые фичи
-	mux.HandleFunc("/api/apply", applyArtistHandler)          // Подать заявку
-	mux.HandleFunc("/api/admin/apps", getApplicationsHandler) // Админка: список заявок
-	mux.HandleFunc("/api/admin/resolve", resolveAppHandler)   // Админка: одобрить/отклонить
-	mux.HandleFunc("/api/artist", getArtistProfileHandler)    // Профиль артиста
-	mux.HandleFunc("/api/staff", getStaffHandler)             // Контакты (администрация)
-
-	port := ":8080"
-	log.Printf("Сервер запущен на http://localhost%s\n", port)
-	http.ListenAndServe(port, mux)
+	log.Println("Сервер запущен на http://localhost:8080")
+	http.ListenAndServe(":8080", mux)
 }
-
-// --- ОБРАБОТЧИКИ ---
 
 func streamAudioHandler(w http.ResponseWriter, r *http.Request) {
 	trackID := r.URL.Query().Get("id")
-	audioPath := filepath.Join(".", "storage", "audio", trackID+".mp3")
-
-	// Засчитываем прослушивание при запросе аудио
 	tracks := readTracks()
 	for i, t := range tracks {
 		if t.FileName == trackID {
@@ -130,12 +121,10 @@ func streamAudioHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-
-	http.ServeFile(w, r, audioPath)
+	http.ServeFile(w, r, filepath.Join(".", "storage", "audio", trackID+".mp3"))
 }
 
 func getTracksHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(readTracks())
 }
@@ -143,7 +132,6 @@ func getTracksHandler(w http.ResponseWriter, r *http.Request) {
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Username, Password string }
 	json.NewDecoder(r.Body).Decode(&req)
-
 	for _, u := range readUsers() {
 		if u.Username == req.Username && u.Password == req.Password {
 			json.NewEncoder(w).Encode(u)
@@ -156,7 +144,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	var req User
 	json.NewDecoder(r.Body).Decode(&req)
-
 	users := readUsers()
 	for _, u := range users {
 		if u.Username == req.Username {
@@ -164,12 +151,11 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	req.ID = fmt.Sprintf("u_%d", time.Now().Unix())
 	req.Role = "user"
 	req.AppStatus = "none"
-	users = append(users, req)
-	writeUsers(users)
+	req.AppHistory = []AppRecord{}
+	writeUsers(append(users, req))
 	json.NewEncoder(w).Encode(req)
 }
 
@@ -190,18 +176,21 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(dstAudio, audioFile)
 	dstAudio.Close()
 
-	// Парсинг коллабораций и фитов
 	collabsRaw := r.FormValue("collaborators")
 	featsRaw := r.FormValue("feats")
 	var collabs, feats []string
 	if collabsRaw != "" {
-		for _, c := range strings.Split(collabsRaw, ",") {
-			collabs = append(collabs, strings.TrimSpace(c))
-		}
+		collabs = strings.Split(collabsRaw, ",")
 	}
 	if featsRaw != "" {
-		for _, f := range strings.Split(featsRaw, ",") {
-			feats = append(feats, strings.TrimSpace(f))
+		feats = strings.Split(featsRaw, ",")
+	}
+
+	releaseDate := int64(0)
+	if rd := r.FormValue("release_date"); rd != "" {
+		t, err := time.Parse("2006-01-02T15:04", rd)
+		if err == nil {
+			releaseDate = t.Unix()
 		}
 	}
 
@@ -213,19 +202,16 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		Feats:         feats,
 		Cover:         "/covers/" + trackID + coverExt,
 		FileName:      trackID,
-		Plays:         0,
+		Hidden:        false,
+		ReleaseDate:   releaseDate,
 	}
-
-	tracks := readTracks()
-	writeTracks(append(tracks, newTrack))
+	writeTracks(append(readTracks(), newTrack))
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Заявка на артиста
 func applyArtistHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Username string }
 	json.NewDecoder(r.Body).Decode(&req)
-
 	users := readUsers()
 	for i, u := range users {
 		if u.Username == req.Username {
@@ -237,47 +223,64 @@ func applyArtistHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Список заявок для админа
 func getApplicationsHandler(w http.ResponseWriter, r *http.Request) {
 	var apps []User
 	for _, u := range readUsers() {
-		if u.AppStatus == "pending" || u.AppStatus == "rejected" {
+		if u.AppStatus == "pending" {
 			apps = append(apps, u)
 		}
 	}
 	json.NewEncoder(w).Encode(apps)
 }
 
-// Одобрение/Отклонение заявки
 func resolveAppHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Username, Action, Reason string }
 	json.NewDecoder(r.Body).Decode(&req)
-
 	users := readUsers()
 	for i, u := range users {
 		if u.Username == req.Username {
+			record := AppRecord{Date: time.Now().Unix()}
 			if req.Action == "approve" {
 				users[i].AppStatus = "approved"
 				users[i].Role = "artist"
+				record.Status = "Одобрено"
+				record.Reason = "Заявка принята администратором"
 			} else {
 				users[i].AppStatus = "rejected"
-				users[i].AppReason = req.Reason
+				record.Status = "Отклонено"
+				record.Reason = req.Reason
 			}
+			users[i].AppHistory = append(users[i].AppHistory, record)
 			writeUsers(users)
 			return
 		}
 	}
 }
 
-// Профиль артиста
+func adminTrackHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct{ TrackID, Action, NewTitle string }
+	json.NewDecoder(r.Body).Decode(&req)
+	tracks := readTracks()
+	for i, t := range tracks {
+		if t.ID == req.TrackID {
+			if req.Action == "delete" {
+				tracks = append(tracks[:i], tracks[i+1:]...)
+			} else if req.Action == "toggle_hide" {
+				tracks[i].Hidden = !tracks[i].Hidden
+			} else if req.Action == "edit_title" {
+				tracks[i].Title = req.NewTitle
+			}
+			writeTracks(tracks)
+			return
+		}
+	}
+}
+
 func getArtistProfileHandler(w http.ResponseWriter, r *http.Request) {
 	artistName := r.URL.Query().Get("name")
-
 	var artistTracks []Track
 	totalPlays := 0
-
 	for _, t := range readTracks() {
-		// Считаем трек, если артист - основной автор, коллаборатор или фит
 		isArtist := t.Author == artistName
 		for _, c := range t.Collaborators {
 			if c == artistName {
@@ -289,22 +292,26 @@ func getArtistProfileHandler(w http.ResponseWriter, r *http.Request) {
 				isArtist = true
 			}
 		}
-
 		if isArtist {
 			artistTracks = append(artistTracks, t)
 			totalPlays += t.Plays
 		}
 	}
-
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"name":         artistName,
-		"total_tracks": len(artistTracks),
-		"total_plays":  totalPlays,
-		"tracks":       artistTracks,
+		"name": artistName, "total_tracks": len(artistTracks), "total_plays": totalPlays, "tracks": artistTracks,
 	})
 }
 
-// Список администрации
+func getArtistsListHandler(w http.ResponseWriter, r *http.Request) {
+	var artists []string
+	for _, u := range readUsers() {
+		if u.Role == "artist" || u.Role == "admin" {
+			artists = append(artists, u.Username)
+		}
+	}
+	json.NewEncoder(w).Encode(artists)
+}
+
 func getStaffHandler(w http.ResponseWriter, r *http.Request) {
 	var staff []User
 	for _, u := range readUsers() {
