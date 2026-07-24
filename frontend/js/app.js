@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
 
     let audio; // Глобальный объект аудио
+    let globalLoadTracksFn; // Чтобы вызывать перезагрузку из админки
 
     function checkAuth() {
         const userData = localStorage.getItem('resonance_user');
@@ -30,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 adminLinkContainer.style.display = 'none';
             }
 
-            initPlayer();
+            initApp();
         } else {
             loginScreen.style.display = 'flex';
             mainApp.style.display = 'none';
@@ -73,11 +74,65 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ==========================================
-    // 2. МОДУЛЬ ПЛЕЕРА И ЗАГРУЗКИ ТРЕКОВ
+    // 2. МОДУЛЬ ПРИЛОЖЕНИЯ (Плеер, Навигация, Загрузка)
     // ==========================================
-    function initPlayer() {
-        if (audio) return; 
+    function initApp() {
+        if (audio) return; // Защита от двойного запуска
 
+        // --- НАВИГАЦИЯ ---
+        const navHome = document.getElementById('nav-home');
+        const navAdmin = document.getElementById('nav-admin');
+        const tracksSection = document.getElementById('tracks-section');
+        const adminSection = document.getElementById('admin-section');
+        const pageTitle = document.getElementById('page-title');
+
+        navHome.addEventListener('click', (e) => {
+            e.preventDefault();
+            navHome.classList.add('active');
+            navAdmin.style.color = '#8a2be2'; // сброс
+            tracksSection.style.display = 'grid';
+            adminSection.style.display = 'none';
+            pageTitle.textContent = "Для вас";
+        });
+
+        navAdmin.addEventListener('click', (e) => {
+            e.preventDefault();
+            navHome.classList.remove('active');
+            navAdmin.style.color = 'white'; // активный стейт
+            tracksSection.style.display = 'none';
+            adminSection.style.display = 'block';
+            pageTitle.textContent = "Управление контентом";
+        });
+
+        // --- ЗАГРУЗКА ТРЕКА (АДМИНКА) ---
+        const uploadForm = document.getElementById('upload-form');
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Останавливаем стандартную перезагрузку страницы
+            
+            const formData = new FormData(uploadForm);
+            
+            try {
+                // Fetch сам проставит правильные заголовки multipart/form-data
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData 
+                });
+
+                if (response.ok) {
+                    alert('Трек успешно загружен!');
+                    uploadForm.reset(); // Очищаем форму
+                    globalLoadTracksFn(); // Перезагружаем список треков
+                    navHome.click(); // Возвращаемся на главную
+                } else {
+                    alert('Ошибка при загрузке трека');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Сетевая ошибка при загрузке');
+            }
+        });
+
+        // --- ПЛЕЕР ---
         const playPauseBtn = document.querySelector('.play-pause');
         const playPauseIcon = playPauseBtn.querySelector('i');
         const progressSlider = document.querySelector('.progress-slider');
@@ -104,6 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 tracksContainer.innerHTML = '<p style="color: red;">Не удалось загрузить треки с сервера</p>';
             }
         }
+        
+        globalLoadTracksFn = loadTracks; // Экспортируем функцию наружу
 
         function renderTracks(tracks) {
             tracksContainer.innerHTML = ''; 
@@ -194,6 +251,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loadTracks();
     }
 
-    // СТАРТ ПРИЛОЖЕНИЯ
+    // СТАРТ
     checkAuth();
 });

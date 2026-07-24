@@ -4,13 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resonance</title>
-    <!-- Шрифты и иконки -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Основные стили -->
     <link rel="stylesheet" href="css/style.css">
     
-    <!-- Стили экрана авторизации -->
     <style>
         #login-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -36,6 +33,23 @@
         
         #main-app { display: none; }
         #admin-link-container { display: none; } 
+
+        /* Стили формы загрузки */
+        .admin-form {
+            background: #121212; padding: 25px; border-radius: 8px; max-width: 500px;
+        }
+        .admin-form label {
+            display: block; margin-bottom: 8px; font-weight: 600; color: #a7a7a7; font-size: 14px;
+        }
+        .admin-form input {
+            width: 100%; padding: 12px; margin-bottom: 20px; background: #000; 
+            border: 1px solid #333; color: white; border-radius: 4px;
+        }
+        .admin-form button {
+            width: 100%; padding: 12px; background: #8a2be2; border: none; 
+            color: white; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s;
+        }
+        .admin-form button:hover { background: #6a1b9a; }
     </style>
 </head>
 <body>
@@ -61,15 +75,14 @@
                 <span>Resonance</span>
             </div>
             <nav class="menu">
-                <a href="#" class="active"><i class="fa-solid fa-house"></i> Главная</a>
+                <a href="#" class="active" id="nav-home"><i class="fa-solid fa-house"></i> Главная</a>
                 <a href="#"><i class="fa-solid fa-magnifying-glass"></i> Поиск</a>
                 <a href="#"><i class="fa-solid fa-book"></i> Моя медиатека</a>
             </nav>
             
-            <!-- Админка и выход прижаты к низу -->
             <div style="margin-top: auto; display: flex; flex-direction: column; gap: 15px;">
                 <div class="admin-link" id="admin-link-container">
-                    <a href="#" style="color: #8a2be2;"><i class="fa-solid fa-gear"></i> Админ-панель</a>
+                    <a href="#" style="color: #8a2be2;" id="nav-admin"><i class="fa-solid fa-gear"></i> Админ-панель</a>
                 </div>
                 <div class="menu">
                     <a href="#" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Выйти</a>
@@ -80,15 +93,38 @@
         <!-- Главная область -->
         <main class="main-content">
             <header class="topbar">
-                <h2>Для вас</h2>
+                <h2 id="page-title">Для вас</h2>
                 <div class="user-profile" style="display: flex; align-items: center; gap: 15px;">
                     <span id="user-profile-name" style="font-weight: 600;">Гость</span>
                     <img src="https://via.placeholder.com/40" alt="Avatar" class="avatar">
                 </div>
             </header>
 
-            <section class="tracks-container">
+            <!-- Секция 1: Список треков -->
+            <section class="tracks-container" id="tracks-section">
                 <!-- Сюда JS будет динамически вставлять треки -->
+            </section>
+
+            <!-- Секция 2: Админ панель (Скрыта) -->
+            <section id="admin-section" style="display: none;">
+                <div class="admin-form">
+                    <h3 style="margin-bottom: 20px;">Загрузить новый трек</h3>
+                    <form id="upload-form">
+                        <label>Название трека</label>
+                        <input type="text" name="title" required placeholder="Например: Midnight Drive">
+                        
+                        <label>Автор (Артист)</label>
+                        <input type="text" name="author" required placeholder="Например: Pulse Logistics">
+                        
+                        <label>Ссылка на обложку (URL)</label>
+                        <input type="url" name="cover" required placeholder="https://example.com/cover.jpg">
+                        
+                        <label>Аудио файл (.mp3)</label>
+                        <input type="file" name="audio_file" accept=".mp3" required>
+                        
+                        <button type="submit"><i class="fa-solid fa-cloud-arrow-up"></i> Загрузить трек</button>
+                    </form>
+                </div>
             </section>
         </main>
 

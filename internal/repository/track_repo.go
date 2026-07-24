@@ -3,22 +3,22 @@ package repository
 import (
 	"encoding/json"
 	"os"
-	"resonance/internal/models" // Замени "resonance" на имя модуля из твоего go.mod
 	"sync"
+
+	"resonance/internal/models" // Замени на свой модуль
 )
 
 // TrackRepository — интерфейс, описывающий контракт для работы с треками
 type TrackRepository interface {
 	GetAll() ([]models.Track, error)
+	Add(track models.Track) error // <-- Новый метод
 }
 
-// JSONTrackRepo — реализация хранилища на основе JSON файла
 type JSONTrackRepo struct {
 	filePath string
-	mu       sync.RWMutex // Мьютекс для безопасного чтения/записи
+	mu       sync.RWMutex
 }
 
-// NewJSONTrackRepo — конструктор
 func NewJSONTrackRepo(path string) *JSONTrackRepo {
 	return &JSONTrackRepo{
 		filePath: path,
@@ -27,7 +27,6 @@ func NewJSONTrackRepo(path string) *JSONTrackRepo {
 
 // GetAll читает файл и возвращает массив треков
 func (r *JSONTrackRepo) GetAll() ([]models.Track, error) {
-	// Блокируем файл для чтения. Если кто-то сейчас пишет в него, мы подождем.
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -42,4 +41,34 @@ func (r *JSONTrackRepo) GetAll() ([]models.Track, error) {
 	}
 
 	return tracks, nil
+}
+
+// Add записывает новый трек в JSON файл
+func (r *JSONTrackRepo) Add(track models.Track) error {
+	// Используем Lock (эксклюзивная блокировка для записи)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	// 1. Читаем текущие данные
+	data, err := os.ReadFile(r.filePath)
+	if err != nil {
+		return err
+	}
+
+	var tracks []models.Track
+	if err := json.Unmarshal(data, &tracks); err != nil {
+		return err
+	}
+
+	// 2. Добавляем новый трек в массив
+	tracks = append(tracks, track)
+
+	// 3. Форматируем обратно в красивый JSON
+	newData, err := json.MarshalIndent(tracks, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	// 4. Перезаписываем файл
+	return os.WriteFile(r.filePath, newData, 0644)
 }
