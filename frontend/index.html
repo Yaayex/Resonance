@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="css/style.css">
     
     <style>
+        /* Стили экрана входа (остаются прежними) */
         #login-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: #000000; display: flex; align-items: center; justify-content: center;
@@ -34,21 +35,14 @@
         #main-app { display: none; }
         #admin-link-container { display: none; } 
 
-        .admin-form {
-            background: #121212; padding: 25px; border-radius: 8px; max-width: 500px;
-        }
-        .admin-form label {
-            display: block; margin-bottom: 8px; font-weight: 600; color: #a7a7a7; font-size: 14px;
-        }
-        .admin-form input {
-            width: 100%; padding: 12px; margin-bottom: 20px; background: #000; 
-            border: 1px solid #333; color: white; border-radius: 4px;
-        }
-        .admin-form button {
-            width: 100%; padding: 12px; background: #8a2be2; border: none; 
-            color: white; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s;
-        }
+        .admin-form { background: #121212; padding: 25px; border-radius: 8px; max-width: 500px; }
+        .admin-form label { display: block; margin-bottom: 8px; font-weight: 600; color: #a7a7a7; font-size: 14px; }
+        .admin-form input { width: 100%; padding: 12px; margin-bottom: 20px; background: #000; border: 1px solid #333; color: white; border-radius: 4px; }
+        .admin-form button { width: 100%; padding: 12px; background: #8a2be2; border: none; color: white; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; }
         .admin-form button:hover { background: #6a1b9a; }
+        
+        /* Поле только для чтения */
+        .admin-form input[readonly] { background: #1a1a1a; cursor: not-allowed; color: #888; border-color: #222;}
     </style>
 </head>
 <body>
@@ -59,8 +53,8 @@
             <h2 style="margin-bottom: 5px;"><i class="fa-solid fa-wave-square" style="color: #8a2be2;"></i> Resonance</h2>
             <p style="margin-bottom: 25px; color: #a7a7a7; font-size: 14px;">Вход в систему</p>
             
-            <input type="text" id="username-input" placeholder="Логин (например, admin)">
-            <input type="password" id="password-input" placeholder="Пароль (например, 123)">
+            <input type="text" id="username-input" placeholder="Логин (admin)">
+            <input type="password" id="password-input" placeholder="Пароль (123)">
             <button id="login-btn">Войти</button>
         </div>
     </div>
@@ -69,22 +63,19 @@
     <div id="main-app" class="app-container">
         <!-- Боковое меню -->
         <aside class="sidebar">
-            <div class="logo">
+            <div class="logo" id="logo-link" style="cursor: pointer;">
                 <i class="fa-solid fa-wave-square"></i>
                 <span>Resonance</span>
             </div>
             <nav class="menu">
                 <a href="#" class="active" id="nav-home"><i class="fa-solid fa-house"></i> Главная</a>
-                <a href="#"><i class="fa-solid fa-magnifying-glass"></i> Поиск</a>
-                <a href="#"><i class="fa-solid fa-book"></i> Моя медиатека</a>
+                <a href="#" id="nav-search"><i class="fa-solid fa-magnifying-glass"></i> Поиск</a>
+                <a href="#" id="nav-library"><i class="fa-solid fa-book"></i> Моя медиатека</a>
             </nav>
             
             <div style="margin-top: auto; display: flex; flex-direction: column; gap: 15px;">
                 <div class="admin-link" id="admin-link-container">
                     <a href="#" style="color: #8a2be2;" id="nav-admin"><i class="fa-solid fa-gear"></i> Админ-панель</a>
-                </div>
-                <div class="menu">
-                    <a href="#" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Выйти</a>
                 </div>
             </div>
         </aside>
@@ -93,16 +84,47 @@
         <main class="main-content">
             <header class="topbar">
                 <h2 id="page-title">Для вас</h2>
-                <div class="user-profile" style="display: flex; align-items: center; gap: 15px;">
-                    <span id="user-profile-name" style="font-weight: 600;">Гость</span>
-                    <img src="https://via.placeholder.com/40" alt="Avatar" class="avatar">
+                
+                <!-- Блок пользователя с выпадающим меню -->
+                <div class="user-profile-wrapper" id="profile-btn">
+                    <span id="user-profile-name">Гость</span>
+                    <div class="avatar-circle">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    
+                    <!-- Само всплывающее меню -->
+                    <div class="profile-dropdown" id="profile-dropdown">
+                        <a href="#" id="drop-home"><i class="fa-solid fa-house"></i> Главная</a>
+                        <a href="#" id="drop-library-link"><i class="fa-solid fa-book"></i> Медиатека</a>
+                        <div class="divider"></div>
+                        <a href="#" id="drop-logout" style="color: #ff4d4d;"><i class="fa-solid fa-right-from-bracket"></i> Выйти</a>
+                    </div>
                 </div>
             </header>
 
-            <!-- Список треков -->
+            <!-- Секция 1: Главная (Список всех треков) -->
             <section class="tracks-container" id="tracks-section"></section>
 
-            <!-- Админ панель -->
+            <!-- Секция 2: Поиск -->
+            <section id="search-section" style="display: none;">
+                <div class="search-header">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="search-input" placeholder="Что вы хотите послушать? Введите название или автора...">
+                </div>
+                <div class="tracks-container" id="search-results-section" style="margin-top: 30px;">
+                    <!-- Результаты поиска -->
+                </div>
+            </section>
+
+            <!-- Секция 3: Медиатека -->
+            <section id="library-section" style="display: none;">
+                <p style="color: #a7a7a7; margin-bottom: 20px;">Здесь отображаются треки, загруженные вами.</p>
+                <div class="tracks-container" id="library-results-section">
+                    <!-- Треки пользователя -->
+                </div>
+            </section>
+
+            <!-- Секция 4: Админ панель -->
             <section id="admin-section" style="display: none;">
                 <div class="admin-form">
                     <h3 style="margin-bottom: 20px;">Загрузить новый трек</h3>
@@ -111,9 +133,9 @@
                         <input type="text" name="title" required placeholder="Например: Midnight Drive">
                         
                         <label>Автор (Артист)</label>
-                        <input type="text" name="author" required placeholder="Например: Pulse Logistics">
+                        <!-- ИЗМЕНЕНИЕ: Поле только для чтения -->
+                        <input type="text" name="author" id="admin-author-input" readonly>
                         
-                        <!-- ИЗМЕНЕНИЕ: Теперь это загрузка файла картинки -->
                         <label>Обложка трека (Картинка)</label>
                         <input type="file" name="cover_file" accept="image/*" required>
                         
@@ -129,7 +151,7 @@
         <!-- Нижняя панель плеера -->
         <footer class="player-bar">
             <div class="now-playing">
-                <img src="https://via.placeholder.com/50/111" alt="Cover" id="player-cover">
+                <img src="https://via.placeholder.com/56/111" alt="Cover" id="player-cover">
                 <div class="track-meta">
                     <h4 id="player-title">Не выбрано</h4>
                     <p id="player-author">—</p>

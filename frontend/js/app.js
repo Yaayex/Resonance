@@ -11,21 +11,25 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const adminLinkContainer = document.getElementById('admin-link-container');
     const userProfileName = document.getElementById('user-profile-name');
-    const logoutBtn = document.getElementById('logout-btn');
+    const adminAuthorInput = document.getElementById('admin-author-input'); // Поле автора в форме
 
-    let audio; // Глобальный объект аудио
-    let globalLoadTracksFn; // Чтобы вызывать перезагрузку из админки
+    let audio; 
+    let globalTracks = []; // Храним все треки для поиска и фильтрации
+    let currentUser = null;
 
     function checkAuth() {
         const userData = localStorage.getItem('resonance_user');
         
         if (userData) {
-            const user = JSON.parse(userData);
+            currentUser = JSON.parse(userData);
             loginScreen.style.display = 'none';
             mainApp.style.display = 'grid';
-            userProfileName.textContent = user.username;
             
-            if (user.role === 'admin') {
+            userProfileName.textContent = currentUser.username;
+            // Автоматически подставляем имя пользователя в форму добавления трека
+            if(adminAuthorInput) adminAuthorInput.value = currentUser.username;
+            
+            if (currentUser.role === 'admin') {
                 adminLinkContainer.style.display = 'block';
             } else {
                 adminLinkContainer.style.display = 'none';
@@ -41,7 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loginBtn.addEventListener('click', async () => {
         const username = usernameInput.value.trim();
         const password = passwordInput.value.trim();
-
         if (!username || !password) return;
 
         try {
@@ -65,74 +68,147 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    logoutBtn.addEventListener('click', () => {
+    function logoutUser() {
         localStorage.removeItem('resonance_user');
-        if (audio) {
-            audio.pause(); 
-        }
+        if (audio) audio.pause(); 
         window.location.reload(); 
-    });
+    }
 
     // ==========================================
-    // 2. МОДУЛЬ ПРИЛОЖЕНИЯ (Плеер, Навигация, Загрузка)
+    // 2. ИНТЕРФЕЙС: ДРОПДАУН, НАВИГАЦИЯ, ПОИСК
     // ==========================================
     function initApp() {
         if (audio) return; // Защита от двойного запуска
 
-        // --- НАВИГАЦИЯ ---
-        const navHome = document.getElementById('nav-home');
-        const navAdmin = document.getElementById('nav-admin');
-        const tracksSection = document.getElementById('tracks-section');
-        const adminSection = document.getElementById('admin-section');
-        const pageTitle = document.getElementById('page-title');
+        // --- Дропдаун профиля ---
+        const profileBtn = document.getElementById('profile-btn');
+        const profileDropdown = document.getElementById('profile-dropdown');
 
-        navHome.addEventListener('click', (e) => {
-            e.preventDefault();
-            navHome.classList.add('active');
-            navAdmin.style.color = '#8a2be2'; // сброс
-            tracksSection.style.display = 'grid';
-            adminSection.style.display = 'none';
-            pageTitle.textContent = "Для вас";
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Чтобы клик не дошел до document
+            profileDropdown.classList.toggle('active');
         });
 
-        navAdmin.addEventListener('click', (e) => {
-            e.preventDefault();
-            navHome.classList.remove('active');
-            navAdmin.style.color = 'white'; // активный стейт
-            tracksSection.style.display = 'none';
-            adminSection.style.display = 'block';
-            pageTitle.textContent = "Управление контентом";
+        // Закрываем меню при клике в любое другое место
+        document.addEventListener('click', (e) => {
+            if (!profileBtn.contains(e.target)) {
+                profileDropdown.classList.remove('active');
+            }
+        });
+
+        // Кнопки внутри дропдауна
+        document.getElementById('drop-logout').addEventListener('click', (e) => {
+            e.preventDefault(); logoutUser();
+        });
+        document.getElementById('drop-home').addEventListener('click', (e) => {
+            e.preventDefault(); navHome.click();
+        });
+        document.getElementById('drop-library-link').addEventListener('click', (e) => {
+            e.preventDefault(); navLibrary.click();
+        });
+
+
+        // --- НАВИГАЦИЯ ---
+        const logoLink = document.getElementById('logo-link');
+        const navHome = document.getElementById('nav-home');
+        const navSearch = document.getElementById('nav-search');
+        const navLibrary = document.getElementById('nav-library');
+        const navAdmin = document.getElementById('nav-admin');
+        
+        const sections = {
+            home: document.getElementById('tracks-section'),
+            search: document.getElementById('search-section'),
+            library: document.getElementById('library-section'),
+            admin: document.getElementById('admin-section')
+        };
+        const pageTitle = document.getElementById('page-title');
+
+        function switchSection(activeNav, targetSection, title) {
+            // Убираем active у всех навигационных ссылок
+            [navHome, navSearch, navLibrary, navAdmin].forEach(el => {
+                if(el) { el.classList.remove('active'); el.style.color = ''; }
+            });
+            // Прячем все секции
+            Object.values(sections).forEach(sec => { if(sec) sec.style.display = 'none'; });
+
+            // Включаем нужные
+            if(activeNav) {
+                if(activeNav.id === 'nav-admin') activeNav.style.color = 'white';
+                else activeNav.classList.add('active');
+            }
+            if(targetSection) {
+                targetSection.style.display = targetSection.id === 'search-section' ? 'block' : 'grid';
+                if(targetSection.id === 'admin-section' || targetSection.id === 'library-section') targetSection.style.display = 'block';
+            }
+            pageTitle.textContent = title;
+        }
+
+        logoLink.addEventListener('click', () => navHome.click());
+        
+        navHome.addEventListener('click', (e) => {
+            e.preventDefault(); switchSection(navHome, sections.home, "Для вас");
+            renderTracks(globalTracks, sections.home);
+        });
+
+        navSearch.addEventListener('click', (e) => {
+            e.preventDefault(); switchSection(navSearch, sections.search, "Поиск");
+            document.getElementById('search-input').focus();
+        });
+
+        navLibrary.addEventListener('click', (e) => {
+            e.preventDefault(); switchSection(navLibrary, sections.library, "Моя медиатека");
+            // Фильтруем треки: показываем только те, где автор = логин юзера
+            const myTracks = globalTracks.filter(t => t.author === currentUser.username);
+            renderTracks(myTracks, document.getElementById('library-results-section'));
+        });
+
+        if(navAdmin) {
+            navAdmin.addEventListener('click', (e) => {
+                e.preventDefault(); switchSection(navAdmin, sections.admin, "Управление контентом");
+            });
+        }
+
+        // --- ЖИВОЙ ПОИСК ---
+        const searchInput = document.getElementById('search-input');
+        const searchResultsContainer = document.getElementById('search-results-section');
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            if (query === '') {
+                searchResultsContainer.innerHTML = ''; // Очищаем, если пусто
+                return;
+            }
+            // Ищем по названию или автору
+            const filtered = globalTracks.filter(t => 
+                t.title.toLowerCase().includes(query) || 
+                t.author.toLowerCase().includes(query)
+            );
+            renderTracks(filtered, searchResultsContainer);
         });
 
         // --- ЗАГРУЗКА ТРЕКА (АДМИНКА) ---
         const uploadForm = document.getElementById('upload-form');
-        uploadForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Останавливаем стандартную перезагрузку страницы
-            
-            const formData = new FormData(uploadForm);
-            
-            try {
-                // Fetch сам проставит правильные заголовки multipart/form-data
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData 
-                });
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(uploadForm);
+                try {
+                    const response = await fetch('/api/upload', { method: 'POST', body: formData });
+                    if (response.ok) {
+                        alert('Трек успешно загружен!');
+                        uploadForm.reset(); 
+                        adminAuthorInput.value = currentUser.username; // Восстанавливаем имя после сброса формы
+                        loadTracks(); // Обновляем массив
+                        navHome.click(); // Перекидываем на главную
+                    } else { alert('Ошибка при загрузке трека'); }
+                } catch (error) { alert('Сетевая ошибка при загрузке'); }
+            });
+        }
 
-                if (response.ok) {
-                    alert('Трек успешно загружен!');
-                    uploadForm.reset(); // Очищаем форму
-                    globalLoadTracksFn(); // Перезагружаем список треков
-                    navHome.click(); // Возвращаемся на главную
-                } else {
-                    alert('Ошибка при загрузке трека');
-                }
-            } catch (error) {
-                console.error(error);
-                alert('Сетевая ошибка при загрузке');
-            }
-        });
 
-        // --- ПЛЕЕР ---
+        // ==========================================
+        // 3. ПЛЕЕР И ОТРИСОВКА КАРТОЧЕК
+        // ==========================================
         const playPauseBtn = document.querySelector('.play-pause');
         const playPauseIcon = playPauseBtn.querySelector('i');
         const progressSlider = document.querySelector('.progress-slider');
@@ -143,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const playerCover = document.getElementById('player-cover');
         const playerTitle = document.getElementById('player-title');
         const playerAuthor = document.getElementById('player-author');
-        const tracksContainer = document.querySelector('.tracks-container');
 
         audio = new Audio();
         audio.volume = 0.8;
@@ -152,19 +227,25 @@ document.addEventListener('DOMContentLoaded', () => {
         async function loadTracks() {
             try {
                 const response = await fetch('/api/tracks');
-                const tracks = await response.json();
-                renderTracks(tracks);
+                globalTracks = await response.json();
+                // По умолчанию рендерим на главную
+                renderTracks(globalTracks, sections.home);
             } catch (error) {
                 console.error("Ошибка загрузки треков:", error);
-                tracksContainer.innerHTML = '<p style="color: red;">Не удалось загрузить треки с сервера</p>';
+                sections.home.innerHTML = '<p style="color: red;">Не удалось загрузить треки с сервера</p>';
             }
         }
-        
-        globalLoadTracksFn = loadTracks; // Экспортируем функцию наружу
 
-        function renderTracks(tracks) {
-            tracksContainer.innerHTML = ''; 
-            tracks.forEach(track => {
+        // Универсальная функция отрисовки карточек в нужный контейнер
+        function renderTracks(tracksList, container) {
+            container.innerHTML = ''; 
+            
+            if (tracksList.length === 0) {
+                container.innerHTML = '<p style="color: #a7a7a7; grid-column: 1/-1;">Здесь пока ничего нет</p>';
+                return;
+            }
+
+            tracksList.forEach(track => {
                 const card = document.createElement('div');
                 card.className = 'track-card';
                 card.innerHTML = `
@@ -178,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
                 card.addEventListener('click', () => playTrack(track));
-                tracksContainer.appendChild(card);
+                container.appendChild(card);
             });
         }
 
@@ -229,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (duration) {
                 const progressPercent = (currentTime / duration) * 100;
                 progressSlider.value = progressPercent;
+                // Неоновый фиолетовый акцент на ползунке
                 progressSlider.style.background = `linear-gradient(to right, #8a2be2 ${progressPercent}%, #535353 ${progressPercent}%)`;
             }
         });
@@ -248,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playPauseBtn.addEventListener('click', togglePlay);
         volumeSlider.dispatchEvent(new Event('input'));
 
-        loadTracks();
+        loadTracks(); // Загружаем треки при старте
     }
 
     // СТАРТ
