@@ -48,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { toast.classList.remove('show'); toast.classList.add('hide'); setTimeout(() => toast.remove(), 400); }, 3500);
     }
 
-    // Переключение экранов логина/регистрации
     document.getElementById('show-register').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-box').style.display = 'none'; document.getElementById('register-box').style.display = 'block'; });
     document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('register-box').style.display = 'none'; document.getElementById('login-box').style.display = 'block'; });
 
@@ -58,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
         else { showToast((await res.json()).error, 'error'); }
     }
 
-    // === КНОПКИ АВТОРИЗАЦИИ И НАСТРОЕК (ВОССТАНОВЛЕНЫ) ===
     document.getElementById('login-btn').addEventListener('click', () => {
         const u = document.getElementById('login-username').value.trim();
         const p = document.getElementById('login-password').value.trim();
@@ -107,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // === ОСТАЛЬНАЯ ЛОГИКА ===
     function loadSettingsLogs() {
         let logs = JSON.parse(localStorage.getItem(`admin_logs_${currentUser.username}`)) || [];
         const container = document.getElementById('admin-logs-list');
@@ -218,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function toggleLike(trackId) {
-        if(!trackId) return;
+        if(!trackId || trackId === 'preview') return;
         const res = await fetch('/api/like', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({Username: currentUser.username, TrackID: trackId})
@@ -238,6 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateLikeButtons() {
+        if (currentTrackId === 'preview') {
+            document.getElementById('float-like-btn').innerHTML = '<i class="fa-regular fa-heart"></i>';
+            document.getElementById('fs-like-btn').innerHTML = '<i class="fa-regular fa-heart"></i>';
+            return;
+        }
+
         const isLiked = currentUser && currentUser.liked_tracks && currentUser.liked_tracks.includes(currentTrackId);
         const floatHeart = document.getElementById('float-like-btn');
         const fsHeart = document.getElementById('fs-like-btn');
@@ -391,6 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function playNext() {
+        if (currentTrackId === 'preview') return;
         if (isMyWaveMode) { playMyWaveNext(); return; }
         const next = getNextTrack();
         if (next) playTrack(next, currentContextList);
@@ -398,6 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function playPrev() {
+        if (currentTrackId === 'preview') return;
         if (isMyWaveMode) { showToast('В Моей Волне нельзя вернуться назад', 'info'); return; }
         if (audio.currentTime > 3) { audio.currentTime = 0; return; }
         const prev = getPrevTrack();
@@ -541,6 +546,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === ИНИЦИАЛИЗАЦИЯ И ПРИВЯЗКА СОБЫТИЙ ОДИН РАЗ ===
     let appInitialized = false;
+    let previewAudioUrl = null;
+
     function initApp() {
         if (appInitialized) return;
         appInitialized = true;
@@ -579,7 +586,15 @@ document.addEventListener('DOMContentLoaded', () => {
         navLinks.search.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.search, sections.search, "Поиск"); document.getElementById('search-input').focus(); });
         navLinks.radio.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.radio, sections.radio, "Радио"); });
         navLinks.library.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.library, sections.library, "Медиатека"); renderLibrary(); });
-        if(navLinks.upload) navLinks.upload.addEventListener('click', async (e) => { e.preventDefault(); const r = await fetch('/api/artists'); allArtists = await r.json(); switchSec(navLinks.upload, sections.upload, "Студия"); });
+        
+        if(navLinks.upload) navLinks.upload.addEventListener('click', async (e) => { 
+            e.preventDefault(); 
+            const r = await fetch('/api/artists'); 
+            allArtists = await r.json(); 
+            window.updatePreviewAuthors();
+            switchSec(navLinks.upload, sections.upload, "Студия"); 
+        });
+        
         if(navLinks.admin) navLinks.admin.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.admin, sections.admin, "Управление"); loadAdminData(); });
         
         navLinks.staff.addEventListener('click', async (e) => { 
@@ -647,6 +662,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (isLiveRadio) {
                 document.getElementById('fs-author').textContent = "Прямой эфир (LIVE)";
+            } else if (currentTrackId === 'preview') {
+                document.getElementById('fs-author').textContent = document.getElementById('preview-authors').textContent;
             } else {
                 const currentTrack = globalTracks.find(t => t.id === currentTrackId);
                 if (currentTrack) document.getElementById('fs-author').innerHTML = formatAuthors(currentTrack);
@@ -679,8 +696,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('drive-cover').src = document.getElementById('player-cover').src;
             document.getElementById('drive-title').textContent = document.getElementById('player-title').textContent;
             
-            if (isLiveRadio) document.getElementById('drive-author').textContent = "Прямой эфир (LIVE)";
-            else {
+            if (isLiveRadio) {
+                document.getElementById('drive-author').textContent = "Прямой эфир (LIVE)";
+            } else if (currentTrackId === 'preview') {
+                document.getElementById('drive-author').textContent = document.getElementById('preview-authors').textContent;
+            } else {
                 const ct = globalTracks.find(t => t.id === currentTrackId);
                 if (ct) document.getElementById('drive-author').textContent = ct.author;
             }
@@ -691,6 +711,51 @@ document.addEventListener('DOMContentLoaded', () => {
         if(drivePlayBtn) drivePlayBtn.addEventListener('click', togglePlayPause);
         document.getElementById('drive-next')?.addEventListener('click', playNext);
         document.getElementById('drive-prev')?.addEventListener('click', playPrev);
+
+        // === ЛОГИКА СТУДИИ (ПРЕВЬЮ ТРЕКА) ===
+        const upTitle = document.getElementById('up-title');
+        const previewTitle = document.getElementById('preview-title');
+        const upCover = document.getElementById('up-cover');
+        const previewImg = document.getElementById('preview-img');
+        const upAudio = document.getElementById('up-audio');
+        const previewAuthors = document.getElementById('preview-authors');
+        const upAuthor = document.getElementById('up-author');
+
+        if (upTitle && previewTitle) {
+            upTitle.addEventListener('input', (e) => {
+                previewTitle.textContent = e.target.value || 'Название трека';
+            });
+        }
+
+        if (upCover && previewImg) {
+            upCover.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => previewImg.src = ev.target.result;
+                    reader.readAsDataURL(file);
+                } else {
+                    previewImg.src = 'https://via.placeholder.com/300/1C1C1E?text=Cover';
+                }
+            });
+        }
+
+        if (upAudio) {
+            upAudio.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if (previewAudioUrl) URL.revokeObjectURL(previewAudioUrl);
+                    previewAudioUrl = URL.createObjectURL(file);
+                } else {
+                    previewAudioUrl = null;
+                }
+            });
+        }
+
+        window.updatePreviewAuthors = function() {
+            if (!upAuthor || !previewAuthors) return;
+            previewAuthors.textContent = upAuthor.value || 'Автор';
+        };
 
         // Жанры
         let appGenres = JSON.parse(localStorage.getItem('resonance_genres')) || ['Всё подряд', 'Новинки', 'Электроника', 'Тяжелый Рок', 'Хип-Хоп', 'В дорогу', 'Тренировка'];
@@ -753,7 +818,16 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             try {
                 const res = await fetch('/api/upload', { method: 'POST', body: new FormData(e.target) });
-                if (res.ok) { showToast('Трек успешно загружен!', 'success'); e.target.reset(); document.getElementById('preview-img').src = 'https://via.placeholder.com/300/1C1C1E?text=Cover'; loadTracks(); navLinks.home.click(); }
+                if (res.ok) { 
+                    showToast('Трек успешно загружен!', 'success'); 
+                    e.target.reset(); 
+                    document.getElementById('preview-img').src = 'https://via.placeholder.com/300/1C1C1E?text=Cover'; 
+                    document.getElementById('preview-title').textContent = 'Название трека';
+                    if (previewAudioUrl) { URL.revokeObjectURL(previewAudioUrl); previewAudioUrl = null; }
+                    window.updatePreviewAuthors();
+                    loadTracks(); 
+                    navLinks.home.click(); 
+                }
                 else { showToast('Ошибка', 'error'); }
             } catch (err) { showToast('Ошибка сети', 'error'); }
         });
@@ -794,6 +868,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const playBtnOverlay = e.target.closest('.play-btn-overlay');
             if (playBtnOverlay && !e.target.closest('.radio-card')) {
                 e.stopPropagation();
+
+                // Если кликнули на кнопку плей в ПРЕВЬЮ карточке студии
+                if (playBtnOverlay.closest('.preview-card')) {
+                    if (!previewAudioUrl) {
+                        showToast('Сначала загрузите аудио файл (.mp3)', 'error');
+                        return;
+                    }
+                    isLiveRadio = false; currentTrackId = 'preview'; currentContextList = [];
+                    
+                    audio.src = previewAudioUrl;
+                    document.getElementById('player-cover').src = document.getElementById('preview-img').src;
+                    document.getElementById('player-title').textContent = document.getElementById('preview-title').textContent;
+                    document.getElementById('player-author').textContent = document.getElementById('preview-authors').textContent;
+                    
+                    if(floatingPlayer) floatingPlayer.classList.add('active'); 
+                    
+                    if (fsPlayer && fsPlayer.classList.contains('active')) {
+                        document.getElementById('fs-cover').src = document.getElementById('preview-img').src;
+                        document.getElementById('fs-title').textContent = document.getElementById('preview-title').textContent;
+                        document.getElementById('fs-author').textContent = document.getElementById('preview-authors').textContent;
+                    }
+
+                    audio.play(); isPlaying = true; 
+                    updatePlayPauseUI();
+                    updateLikeButtons();
+                    if(progressSlider) progressSlider.disabled = false; 
+                    if(fsProgress) fsProgress.disabled = false;
+                    return;
+                }
+
+                // Стандартный трек
                 const tid = playBtnOverlay.dataset.play;
                 const track = globalTracks.find(t => t.id === tid);
                 const container = playBtnOverlay.closest('.tracks-container');
@@ -888,6 +993,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         audio.addEventListener('ended', () => {
+            if (currentTrackId === 'preview') {
+                isPlaying = false; updatePlayPauseUI(); return;
+            }
             if(repeatMode === 1) { audio.currentTime = 0; audio.play(); return; }
             playNext(); 
             if(!isPlaying) updatePlayPauseUI();
