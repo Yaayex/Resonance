@@ -151,8 +151,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } else { showToast((await res.json()).error, 'error'); }
     });
 
+    // Установка времени суток в баннере
+    function setGreeting() {
+        const hour = new Date().getHours();
+        const greetingEl = document.getElementById('greeting-text');
+        if (!greetingEl) return;
+        if (hour >= 5 && hour < 12) greetingEl.textContent = 'Доброе утро';
+        else if (hour >= 12 && hour < 18) greetingEl.textContent = 'Добрый день';
+        else if (hour >= 18 && hour < 23) greetingEl.textContent = 'Добрый вечер';
+        else greetingEl.textContent = 'Доброй ночи';
+    }
+
     function initApp() {
         if (audio) return; 
+
+        setGreeting();
 
         document.getElementById('mobile-menu-btn').addEventListener('click', () => document.getElementById('sidebar').classList.add('open'));
         document.getElementById('mobile-close-btn').addEventListener('click', () => document.getElementById('sidebar').classList.remove('open'));
@@ -171,8 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Навигация
         const sections = {
-            home: document.getElementById('tracks-section'), search: document.getElementById('search-section'),
+            home: document.getElementById('home-section'), search: document.getElementById('search-section'),
             radio: document.getElementById('radio-section'), library: document.getElementById('library-section'), 
             settings: document.getElementById('settings-section'), upload: document.getElementById('upload-section'), 
             admin: document.getElementById('admin-section'), artist: document.getElementById('artist-profile-section'), 
@@ -187,10 +201,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function switchSec(nav, sec, title) {
             document.querySelectorAll('.menu a, .role-link a').forEach(el => el.classList.remove('active'));
-            Object.values(sections).forEach(s => s.style.display = 'none');
+            Object.values(sections).forEach(s => { if(s) s.style.display = 'none'; });
             if(nav) nav.classList.add('active');
-            if(sec) sec.style.display = (sec.id === 'search-section' || sec.id === 'tracks-section' || sec.id === 'radio-section' || sec.id === 'artist-profile-section') ? 'grid' : 'block';
-            if(sec.id === 'artist-profile-section') sec.style.display = 'block';
+            
+            if(sec) {
+                if(sec.id === 'search-section' || sec.id === 'artist-profile-section') sec.style.display = 'grid';
+                else sec.style.display = 'block';
+            }
+            if(sec && sec.id === 'artist-profile-section') sec.style.display = 'block';
+            
             document.getElementById('page-title').textContent = title;
             document.getElementById('sidebar').classList.remove('open'); 
         }
@@ -199,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('drop-home').addEventListener('click', (e) => { e.preventDefault(); navLinks.home.click(); });
         document.getElementById('drop-settings').addEventListener('click', (e) => { e.preventDefault(); switchSec(null, sections.settings, "Настройки"); });
 
-        navLinks.home.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.home, sections.home, "Слушать"); filterAndRender(globalTracks, sections.home); });
+        navLinks.home.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.home, sections.home, "Слушать"); renderHomeSections(); });
         navLinks.search.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.search, sections.search, "Поиск"); document.getElementById('search-input').focus(); });
         navLinks.radio.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.radio, sections.radio, "Радио"); });
         navLinks.library.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.library, sections.library, "Медиатека"); filterAndRender(globalTracks.filter(t => t.author === currentUser.username), document.getElementById('library-results-section')); });
@@ -215,6 +234,31 @@ document.addEventListener('DOMContentLoaded', () => {
             filterAndRender(globalTracks.filter(t => t.title.toLowerCase().includes(q) || t.author.toLowerCase().includes(q)), cont);
         });
 
+        // Кнопка плей случайного трека на главном баннере
+        const randomBtn = document.getElementById('play-random-btn');
+        if(randomBtn) {
+            randomBtn.addEventListener('click', () => {
+                const now = Math.floor(Date.now() / 1000);
+                const visibleTracks = globalTracks.filter(t => !t.hidden && (t.release_date === 0 || t.release_date <= now));
+                if (visibleTracks.length > 0) {
+                    const randomTrack = visibleTracks[Math.floor(Math.random() * visibleTracks.length)];
+                    playTrack(randomTrack);
+                } else {
+                    showToast('Нет доступных треков', 'info');
+                }
+            });
+        }
+
+        // Фильтры-теги на главной (Визуальная заглушка)
+        document.querySelectorAll('.tag-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                renderHomeSections(); // просто перерендериваем для эффекта
+            });
+        });
+
+        // --- ЛОГИКА ТЕГОВ И ПРЕВЬЮ В ФОРМЕ ЗАГРУЗКИ ---
         async function fetchArtists() {
             const r = await fetch('/api/artists');
             allArtists = await r.json();
@@ -298,9 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) { showToast('Ошибка сети', 'error'); }
         });
 
-        // === УПРАВЛЕНИЕ АДМИН ПАНЕЛЬЮ ===
-        
-        // Вкладки админ-панели
+        // --- УПРАВЛЕНИЕ АДМИН ПАНЕЛЬЮ ---
         document.querySelectorAll('.admin-tab').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
@@ -504,7 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         async function loadTracks() {
             const response = await fetch('/api/tracks');
             globalTracks = await response.json() || [];
-            filterAndRender(globalTracks, sections.home);
+            renderHomeSections(); // Рендерим разбитую главную
         }
 
         function formatAuthors(track) {
@@ -517,6 +559,31 @@ document.addEventListener('DOMContentLoaded', () => {
             return html;
         }
 
+        // Новая функция рендера для разделенной главной страницы
+        function renderHomeSections() {
+            const now = Math.floor(Date.now() / 1000);
+            const visibleTracks = globalTracks.filter(t => {
+                if (currentUser.role === 'admin') return true;
+                if (t.hidden) return false;
+                if (t.release_date > 0 && t.release_date > now) return false;
+                return true;
+            });
+
+            // Имитируем разные категории
+            const recContainer = document.getElementById('recommended-section');
+            const newContainer = document.getElementById('new-releases-section');
+            
+            if(recContainer && newContainer) {
+                // Случайные треки в "Рекомендуем"
+                const shuffled = [...visibleTracks].sort(() => 0.5 - Math.random());
+                renderTracks(shuffled.slice(0, 5), recContainer); // Показываем 5 штук
+                
+                // Последние добавленные в "Свежие релизы"
+                renderTracks(visibleTracks.slice(-10).reverse(), newContainer);
+            }
+        }
+
+        // Общая функция фильтрации (оставляем для других страниц типа медиатеки и поиска)
         function filterAndRender(tracksList, container) {
             const now = Math.floor(Date.now() / 1000);
             const visible = tracksList.filter(t => {
@@ -529,6 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function renderTracks(tracksList, container) {
+            if(!container) return;
             container.innerHTML = ''; 
             if (tracksList.length === 0) { container.innerHTML = '<p class="section-desc" style="grid-column: 1/-1; color: #8E8E93;">Здесь пока ничего нет</p>'; return; }
 
