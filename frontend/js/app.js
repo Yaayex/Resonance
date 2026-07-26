@@ -332,52 +332,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(card);
             });
 
-            container.addEventListener('click', async (e) => {
-                const al = e.target.closest('.artist-link');
-                if (al) {
-                    switchSec(null, sections.artist, "Профиль артиста");
-                    document.getElementById('artist-profile-name').textContent = al.dataset.name;
-                    const r = await fetch(`/api/artist?name=${encodeURIComponent(al.dataset.name)}`);
-                    const d = await r.json();
-                    document.getElementById('artist-profile-stats').textContent = `${d.total_tracks} треков • ${d.total_plays} прослушиваний`;
-                    filterAndRender(d.tracks, document.getElementById('artist-tracks-container'));
-                    return;
-                }
-                
-                const dots = e.target.closest('.track-dots');
-                if (dots) {
-                    e.stopPropagation();
-                    const menu = dots.nextElementSibling;
-                    document.querySelectorAll('.track-menu').forEach(m => { if(m!==menu) m.classList.remove('active') });
-                    menu.classList.toggle('active');
-                    return;
-                }
+            // БАГФИКС МЕНЮ ТРЕКОВ ЗДЕСЬ (вешаем слушатель один раз)
+            if (!container.dataset.listenerAttached) {
+                container.addEventListener('click', async (e) => {
+                    const al = e.target.closest('.artist-link');
+                    if (al) {
+                        switchSec(null, sections.artist, "Профиль артиста");
+                        document.getElementById('artist-profile-name').textContent = al.dataset.name;
+                        const r = await fetch(`/api/artist?name=${encodeURIComponent(al.dataset.name)}`);
+                        const d = await r.json();
+                        document.getElementById('artist-profile-stats').textContent = `${d.total_tracks} треков • ${d.total_plays} прослушиваний`;
+                        filterAndRender(d.tracks, document.getElementById('artist-tracks-container'));
+                        return;
+                    }
+                    
+                    const dots = e.target.closest('.track-dots');
+                    if (dots) {
+                        e.stopPropagation();
+                        const menu = dots.nextElementSibling;
+                        document.querySelectorAll('.track-menu').forEach(m => { if(m!==menu) m.classList.remove('active') });
+                        menu.classList.toggle('active');
+                        return;
+                    }
 
-                const btn = e.target.closest('button');
-                if (btn && btn.parentElement.classList.contains('track-menu')) {
-                    e.stopPropagation();
-                    const tid = btn.parentElement.dataset.id;
-                    if (btn.classList.contains('menu-hide')) {
-                        await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'toggle_hide'})});
-                        loadTracks();
+                    const btn = e.target.closest('button');
+                    if (btn && btn.parentElement.classList.contains('track-menu')) {
+                        e.stopPropagation();
+                        const tid = btn.parentElement.dataset.id;
+                        if (btn.classList.contains('menu-hide')) {
+                            await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'toggle_hide'})});
+                            loadTracks();
+                        }
+                        if (btn.classList.contains('menu-del')) {
+                            if(confirm('Точно удалить трек?')) { await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'delete'})}); loadTracks(); }
+                        }
+                        if (btn.classList.contains('menu-edit')) {
+                            const nt = prompt("Новое название трека:");
+                            if(nt) { await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'edit_title', NewTitle: nt})}); loadTracks(); }
+                        }
+                        return;
                     }
-                    if (btn.classList.contains('menu-del')) {
-                        if(confirm('Точно удалить трек?')) { await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'delete'})}); loadTracks(); }
-                    }
-                    if (btn.classList.contains('menu-edit')) {
-                        const nt = prompt("Новое название трека:");
-                        if(nt) { await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'edit_title', NewTitle: nt})}); loadTracks(); }
-                    }
-                    return;
-                }
 
-                const card = e.target.closest('.track-card');
-                if (card && e.target.closest('.play-btn-overlay')) {
-                    const trackId = card.querySelector('.play-btn-overlay').dataset.play;
-                    const track = globalTracks.find(t => t.id === trackId);
-                    if(track) playTrack(track);
-                }
-            });
+                    const card = e.target.closest('.track-card');
+                    if (card && e.target.closest('.play-btn-overlay')) {
+                        const trackId = card.querySelector('.play-btn-overlay').dataset.play;
+                        const track = globalTracks.find(t => t.id === trackId);
+                        if(track) playTrack(track);
+                    }
+                });
+                container.dataset.listenerAttached = "true";
+            }
         }
         
         document.addEventListener('click', (e) => { if(!e.target.closest('.track-dots')) document.querySelectorAll('.track-menu').forEach(m => m.classList.remove('active')); });
