@@ -25,12 +25,12 @@ type User struct {
 	ID               string      `json:"id"`
 	Username         string      `json:"username"`
 	Email            string      `json:"email"`
-	Password         string      `json:"password"`
+	Password         string      `json:"password,omitempty"` // omitempty чтобы не светить пароли в админке
 	Role             string      `json:"role"`
 	AppStatus        string      `json:"app_status"`
 	AppHistory       []AppRecord `json:"app_history"`
-	IsVerified       bool        `json:"is_verified"`       // Новое поле
-	VerificationCode string      `json:"verification_code"` // Новое поле
+	IsVerified       bool        `json:"is_verified"`
+	VerificationCode string      `json:"verification_code,omitempty"`
 }
 
 type Track struct {
@@ -53,7 +53,7 @@ var (
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano()) // Инициализируем генератор случайных чисел
+	rand.Seed(time.Now().UnixNano())
 }
 
 func readUsers() []User {
@@ -88,16 +88,13 @@ func writeTracks(tracks []Track) {
 	os.WriteFile(tracksPath, data, 0644)
 }
 
-// === ФУНКЦИЯ ОТПРАВКИ EMAIL ===
 func sendVerificationEmail(toEmail, code string) {
-	// ВНИМАНИЕ: Вставь сюда свои данные от Gmail!
-	from := "ivan.zaaycev@gmail.com"
-	password := "nltb fuly nriv zbma"
+	from := "ТВОЙ_GMAIL@gmail.com"
+	password := "ТВОЙ_ПАРОЛЬ_ПРИЛОЖЕНИЙ"
 
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
 
-	// Темный HTML-шаблон в стиле Apple
 	htmlBody := fmt.Sprintf(`
 	<!DOCTYPE html>
 	<html>
@@ -145,12 +142,18 @@ func main() {
 	mux.HandleFunc("/api/tracks", getTracksHandler)
 	mux.HandleFunc("/api/login", loginHandler)
 	mux.HandleFunc("/api/register", registerHandler)
-	mux.HandleFunc("/api/verify", verifyHandler) // Новый эндпоинт
+	mux.HandleFunc("/api/verify", verifyHandler)
 	mux.HandleFunc("/api/upload", uploadHandler)
 	mux.HandleFunc("/api/apply", applyArtistHandler)
+
+	// Новые эндпоинты админки
+	mux.HandleFunc("/api/admin/stats", adminStatsHandler)
+	mux.HandleFunc("/api/admin/users", getAllUsersHandler)
+	mux.HandleFunc("/api/admin/user_action", adminUserActionHandler)
 	mux.HandleFunc("/api/admin/apps", getApplicationsHandler)
 	mux.HandleFunc("/api/admin/resolve", resolveAppHandler)
 	mux.HandleFunc("/api/admin/track", adminTrackHandler)
+
 	mux.HandleFunc("/api/artist", getArtistProfileHandler)
 	mux.HandleFunc("/api/artists", getArtistsListHandler)
 	mux.HandleFunc("/api/staff", getStaffHandler)
@@ -204,20 +207,14 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	req.Role = "user"
 	req.AppStatus = "none"
 	req.AppHistory = []AppRecord{}
-
-	// Генерация 6-значного кода и флаг
 	req.IsVerified = false
 	req.VerificationCode = fmt.Sprintf("%06d", rand.Intn(1000000))
 
 	writeUsers(append(users, req))
-
-	// Отправляем письмо асинхронно, чтобы не тормозить регистрацию
 	go sendVerificationEmail(req.Email, req.VerificationCode)
-
 	json.NewEncoder(w).Encode(req)
 }
 
-// === ОБРАБОТЧИК ПОДТВЕРЖДЕНИЯ ===
 func verifyHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct{ Username, Code string }
 	json.NewDecoder(r.Body).Decode(&req)
@@ -300,6 +297,59 @@ func applyArtistHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+// === НОВЫЕ ФУНКЦИИ АДМИНКИ ===
+
+func adminStatsHandler(w http.ResponseWriter, r *http.Request) {
+	users := readUsers()
+	tracks := readTracks()
+	pendingApps := 0
+	for _, u := range users {
+		if u.AppStatus == "pending" {
+			pendingApps++
+		}
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"total_users":  len(users),
+		"total_tracks": len(tracks),
+		"pending_apps": pendingApps,
+	})
+}
+
+func getAllUsersHandler(w http.ResponseWriter, r *http.Request) {
+	users := readUsers()
+	// Очищаем пароли перед отправкой на клиент
+	for i := range users {
+		users[i].Password = ""
+		users[i].VerificationCode = ""
+	}
+	json.NewEncoder(w).Encode(users)
+}
+
+func adminUserActionHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Username, Action, Role string }
+	json.NewDecoder(r.Body).Decode(&req)
+
+	users := readUsers()
+	for i, u := range users {
+		if u.Username == req.Username {
+			if req.Action == "delete" {
+				// Удаляем пользователя
+				users = append(users[:i], users[i+1:]...)
+			} else if req.Action == "set_role" {
+				users[i].Role = req.Role
+				// Если назначаем артистом, обновляем и статус заявки
+				if req.Role == "artist" {
+					users[i].AppStatus = "approved"
+				}
+			}
+			writeUsers(users)
+			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			return
+		}
+	}
+	http.Error(w, `{"error": "Пользователь не найден"}`, http.StatusNotFound)
 }
 
 func getApplicationsHandler(w http.ResponseWriter, r *http.Request) {

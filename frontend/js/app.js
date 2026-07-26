@@ -42,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3500);
     }
 
-    // --- ПРОВЕРКА ВХОДА И НАСТРОЙКИ UI ---
     function checkAuth() {
         const userData = localStorage.getItem('resonance_user');
         if (userData) {
@@ -118,9 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('resonance_user', JSON.stringify(await res.json())); 
             checkAuth(); 
         } 
-        else { 
-            showToast((await res.json()).error, 'error'); 
-        }
+        else { showToast((await res.json()).error, 'error'); }
     }
 
     document.getElementById('login-btn').addEventListener('click', () => {
@@ -151,9 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('verification-modal').style.display = 'none';
             localStorage.setItem('resonance_user', JSON.stringify(await res.json()));
             checkAuth();
-        } else {
-            showToast((await res.json()).error, 'error');
-        }
+        } else { showToast((await res.json()).error, 'error'); }
     });
 
     function initApp() {
@@ -211,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         navLinks.staff.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.staff, sections.staff, "Команда"); fetch('/api/staff').then(r=>r.json()).then(s=>{ let h=''; s.forEach(u=>h+=`<div class="staff-card"><div class="avatar-circle large"><i class="fa-solid fa-shield"></i></div><h4>${u.username}</h4><p class="staff-role">Администратор</p></div>`); document.getElementById('staff-grid').innerHTML=h; }); });
         
         if(navLinks.upload) navLinks.upload.addEventListener('click', (e) => { e.preventDefault(); fetchArtists(); switchSec(navLinks.upload, sections.upload, "Студия"); });
-        if(navLinks.admin) navLinks.admin.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.admin, sections.admin, "Управление"); loadAdminApps(); });
+        if(navLinks.admin) navLinks.admin.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.admin, sections.admin, "Управление"); loadAdminData(); });
 
         document.getElementById('search-input').addEventListener('input', (e) => {
             const q = e.target.value.toLowerCase().trim();
@@ -303,30 +298,119 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) { showToast('Ошибка сети', 'error'); }
         });
 
+        // === УПРАВЛЕНИЕ АДМИН ПАНЕЛЬЮ ===
+        
+        // Вкладки админ-панели
+        document.querySelectorAll('.admin-tab').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.admin-tab-content').forEach(c => c.style.display = 'none');
+                e.target.classList.add('active');
+                document.getElementById(`admin-tab-${e.target.dataset.tab}`).style.display = 'block';
+            });
+        });
+
+        async function loadAdminData() {
+            loadAdminStats();
+            loadAdminApps();
+            loadAdminUsers();
+        }
+
+        async function loadAdminStats() {
+            const res = await fetch('/api/admin/stats');
+            const data = await res.json();
+            document.getElementById('stat-users').textContent = data.total_users;
+            document.getElementById('stat-tracks').textContent = data.total_tracks;
+            document.getElementById('stat-apps').textContent = data.pending_apps;
+        }
+
         async function loadAdminApps() {
             const res = await fetch('/api/admin/apps');
             const apps = await res.json();
             const tbody = document.getElementById('admin-apps-tbody');
             tbody.innerHTML = '';
-            if(!apps) return;
+            if(!apps || apps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#8E8E93;">Нет активных заявок</td></tr>';
+                return;
+            }
             apps.forEach(app => {
-                tbody.innerHTML += `<tr><td>${app.username}</td><td>Ожидает</td>
-                    <td><button class="btn-sm btn-approve" data-u="${app.username}">Одобрить</button><button class="btn-sm btn-reject" data-u="${app.username}">Отклонить</button></td></tr>`;
+                tbody.innerHTML += `<tr>
+                    <td><b>${app.username}</b></td>
+                    <td><span class="status-badge" style="position:static; background: rgba(255,165,0,0.2); color: orange;">Ожидает</span></td>
+                    <td>
+                        <button class="btn-sm btn-approve" data-u="${app.username}">Одобрить</button>
+                        <button class="btn-sm btn-reject" data-u="${app.username}">Отклонить</button>
+                    </td>
+                </tr>`;
             });
+            
             tbody.querySelectorAll('.btn-approve').forEach(b => b.onclick = async (e) => {
-                await fetch('/api/admin/resolve', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: e.target.dataset.u, action: 'approve'})}); loadAdminApps();
+                await fetch('/api/admin/resolve', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: e.target.dataset.u, action: 'approve'})}); 
+                loadAdminData();
                 showToast('Заявка одобрена', 'success');
             });
             tbody.querySelectorAll('.btn-reject').forEach(b => b.onclick = async (e) => {
                 const r = prompt("Причина отказа:");
                 if(r) { 
                     await fetch('/api/admin/resolve', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: e.target.dataset.u, action: 'reject', reason: r})}); 
-                    loadAdminApps(); 
+                    loadAdminData(); 
                     showToast('Заявка отклонена', 'info');
                 }
             });
         }
 
+        async function loadAdminUsers() {
+            const res = await fetch('/api/admin/users');
+            const users = await res.json();
+            const tbody = document.getElementById('admin-users-tbody');
+            tbody.innerHTML = '';
+            if(!users) return;
+            
+            users.forEach(u => {
+                const verifiedStr = u.is_verified ? '<i class="fa-solid fa-check" style="color: #32D74B;"></i> Да' : '<i class="fa-solid fa-xmark" style="color: #FF453A;"></i> Нет';
+                
+                let actionBtns = '';
+                if(u.username !== currentUser.username) {
+                    if (u.role === 'user') {
+                        actionBtns += `<button class="btn-sm btn-action set-role" data-u="${u.username}" data-r="artist">Сделать Артистом</button>`;
+                    } else if (u.role === 'artist') {
+                        actionBtns += `<button class="btn-sm btn-action set-role" data-u="${u.username}" data-r="user">Забрать статус</button>`;
+                    }
+                    actionBtns += `<button class="btn-sm btn-reject delete-user" data-u="${u.username}">Удалить</button>`;
+                } else {
+                    actionBtns = '<span style="color:#8E8E93; font-size: 12px;">Это вы</span>';
+                }
+
+                tbody.innerHTML += `<tr>
+                    <td><b>${u.username}</b></td>
+                    <td>${u.email}</td>
+                    <td>${u.role}</td>
+                    <td>${verifiedStr}</td>
+                    <td>${actionBtns}</td>
+                </tr>`;
+            });
+
+            tbody.querySelectorAll('.set-role').forEach(b => b.onclick = async (e) => {
+                const targetU = e.target.dataset.u;
+                const newR = e.target.dataset.r;
+                if(confirm(`Сменить роль пользователя ${targetU} на ${newR}?`)) {
+                    await fetch('/api/admin/user_action', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: targetU, action: 'set_role', role: newR})});
+                    loadAdminData();
+                    showToast('Роль успешно обновлена', 'success');
+                }
+            });
+            tbody.querySelectorAll('.delete-user').forEach(b => b.onclick = async (e) => {
+                const targetU = e.target.dataset.u;
+                if(confirm(`Точно удалить аккаунт ${targetU} НАВСЕГДА?`)) {
+                    await fetch('/api/admin/user_action', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: targetU, action: 'delete'})});
+                    loadAdminData();
+                    showToast('Пользователь удален', 'success');
+                }
+            });
+        }
+
+
+        // === ГЛОБАЛЬНЫЙ ОБРАБОТЧИК КЛИКОВ ===
         document.addEventListener('click', async (e) => {
             if (!e.target.closest('#profile-btn')) {
                 const pd = document.getElementById('profile-dropdown');

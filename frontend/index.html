@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resonance</title>
-    <!-- Системный шрифт Apple будет подключен через CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -30,7 +29,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно подтверждения почты -->
     <div id="verification-modal" class="modal-overlay" style="display: none;">
         <div class="auth-box">
             <h2 class="auth-logo" style="margin-bottom: 15px;"><i class="fa-solid fa-envelope-circle-check"></i> Подтверждение</h2>
@@ -199,15 +197,56 @@
                 </div>
             </section>
 
+            <!-- ОБНОВЛЕННАЯ АДМИН ПАНЕЛЬ -->
             <section id="admin-section" style="display: none;">
-                <div class="content-form" style="max-width: 100%;">
-                    <h3>Управление заявками</h3>
-                    <table class="admin-table">
-                        <thead>
-                            <tr><th>Пользователь</th><th>Статус</th><th>Действия</th></tr>
-                        </thead>
-                        <tbody id="admin-apps-tbody"></tbody>
-                    </table>
+                <div class="content-form" style="max-width: 100%; background: transparent; border: none; padding: 0;">
+                    
+                    <!-- Дашборд статистики -->
+                    <div class="admin-stats-grid" id="admin-stats-container">
+                        <div class="stat-card">
+                            <h4>Пользователей</h4>
+                            <div class="stat-value" id="stat-users">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Треков загружено</h4>
+                            <div class="stat-value" id="stat-tracks">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>Новых заявок</h4>
+                            <div class="stat-value" id="stat-apps" style="color: var(--accent);">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Табы -->
+                    <div class="admin-tabs">
+                        <button class="admin-tab active" data-tab="apps"><i class="fa-solid fa-inbox"></i> Заявки артистов</button>
+                        <button class="admin-tab" data-tab="users"><i class="fa-solid fa-users-gear"></i> Управление пользователями</button>
+                    </div>
+
+                    <!-- Таблица заявок -->
+                    <div id="admin-tab-apps" class="admin-tab-content active">
+                        <div class="admin-table-wrapper">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr><th>Пользователь</th><th>Статус</th><th>Действия</th></tr>
+                                </thead>
+                                <tbody id="admin-apps-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Таблица пользователей -->
+                    <div id="admin-tab-users" class="admin-tab-content" style="display: none;">
+                        <div class="admin-table-wrapper">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr><th>Логин</th><th>Email</th><th>Роль</th><th>Статус</th><th>Действия</th></tr>
+                                </thead>
+                                <tbody id="admin-users-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 
@@ -256,7 +295,6 @@
         </div>
     </div>
 
-    <!-- Контейнер для всплывающих уведомлений -->
     <div id="toast-container" class="toast-container"></div>
 
     <script src="js/app.js"></script>
