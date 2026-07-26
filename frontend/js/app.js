@@ -11,15 +11,45 @@ document.addEventListener('DOMContentLoaded', () => {
     let allArtists = [];
     let isLiveRadio = false;
 
+    // === СИСТЕМА УВЕДОМЛЕНИЙ (TOASTS) ===
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        let icon = 'fa-circle-info';
+        let iconColor = '#0A84FF'; 
+        
+        if (type === 'success') {
+            icon = 'fa-circle-check';
+            iconColor = '#32D74B'; 
+        } else if (type === 'error') {
+            icon = 'fa-circle-xmark';
+            iconColor = '#FF453A'; 
+        }
+
+        toast.innerHTML = `<i class="fa-solid ${icon}" style="color: ${iconColor}; font-size: 18px;"></i> <span>${message}</span>`;
+        container.appendChild(toast);
+        
+        requestAnimationFrame(() => toast.classList.add('show'));
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.classList.add('hide');
+            setTimeout(() => toast.remove(), 400);
+        }, 3500);
+    }
+
     // --- ПРОВЕРКА ВХОДА И НАСТРОЙКИ UI ---
-function checkAuth() {
+    function checkAuth() {
         const userData = localStorage.getItem('resonance_user');
         if (userData) {
             currentUser = JSON.parse(userData);
             authScreen.style.display = 'none';
             mainApp.style.display = 'grid';
             
-            // Если пользователь не верифицирован, добавляем плашку рядом с именем
             let nameHtml = currentUser.username;
             if (currentUser.is_verified === false) {
                 nameHtml += `<span class="unverified-badge" id="open-verify-modal" title="Нажмите, чтобы подтвердить" style="cursor:pointer;">Не подтвержден</span>`;
@@ -36,7 +66,6 @@ function checkAuth() {
             document.getElementById('set-username').value = currentUser.username;
             document.getElementById('set-email').value = currentUser.email || '';
             
-            // ... остальной код из старой checkAuth (роли, админки, студия) ...
             const adminAuthorInput = document.getElementById('up-author');
             if(adminAuthorInput) adminAuthorInput.value = currentUser.username;
 
@@ -56,43 +85,42 @@ function checkAuth() {
             } else {
                 rankBadge.textContent = 'Слушатель'; rankBadge.style.color = '#8E8E93';
                 navUpload.style.display = 'none'; navAdmin.style.display = 'none';
+                
+                if (currentUser.app_status === 'pending') {
+                    statusBox.textContent = 'Заявка на рассмотрении.';
+                    statusBox.className = 'status-box status-pending'; reqBtn.disabled = true; reqBtn.textContent = 'Ожидайте';
+                } else if (currentUser.app_status === 'rejected') {
+                    statusBox.textContent = 'Заявка отклонена. Посмотрите историю ниже.';
+                    statusBox.className = 'status-box status-rejected'; reqBtn.disabled = false; reqBtn.textContent = 'Подать снова';
+                } else {
+                    statusBox.style.display = 'none'; reqBtn.disabled = false;
+                }
             }
-            
+
+            histList.innerHTML = '';
+            if (currentUser.app_history && currentUser.app_history.length > 0) {
+                currentUser.app_history.forEach(rec => {
+                    const d = new Date(rec.date * 1000).toLocaleDateString();
+                    const cls = rec.status === 'Одобрено' ? 'approved' : 'rejected';
+                    histList.innerHTML += `<div class="history-item ${cls}"><b>${d} - ${rec.status}</b><br>${rec.reason}</div>`;
+                });
+            } else { histList.innerHTML = 'Истории пока нет'; }
+
             initApp();
         } else {
             authScreen.style.display = 'flex'; mainApp.style.display = 'none';
         }
     }
 
-    // Обработка кнопки модалки верификации
-    document.getElementById('verify-close-btn').addEventListener('click', () => {
-        document.getElementById('verification-modal').style.display = 'none';
-    });
-
-    document.getElementById('verify-submit-btn').addEventListener('click', async () => {
-        const code = document.getElementById('verify-code-input').value.trim();
-        if (!code) return;
-        
-        const res = await fetch('/api/verify', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ username: currentUser.username, code: code }) 
-        });
-        
-        if (res.ok) {
-            alert('Email успешно подтвержден! Ограничения сняты.');
-            document.getElementById('verification-modal').style.display = 'none';
-            localStorage.setItem('resonance_user', JSON.stringify(await res.json()));
-            checkAuth();
-        } else {
-            alert((await res.json()).error);
-        }
-    });
-
     async function apiRequest(url, body) {
         const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (res.ok) { localStorage.setItem('resonance_user', JSON.stringify(await res.json())); checkAuth(); } 
-        else alert((await res.json()).error);
+        if (res.ok) { 
+            localStorage.setItem('resonance_user', JSON.stringify(await res.json())); 
+            checkAuth(); 
+        } 
+        else { 
+            showToast((await res.json()).error, 'error'); 
+        }
     }
 
     document.getElementById('login-btn').addEventListener('click', () => {
@@ -108,6 +136,26 @@ function checkAuth() {
         if (u && e && p) apiRequest('/api/register', { username: u, email: e, password: p });
     });
 
+    document.getElementById('verify-close-btn').addEventListener('click', () => {
+        document.getElementById('verification-modal').style.display = 'none';
+    });
+
+    document.getElementById('verify-submit-btn').addEventListener('click', async () => {
+        const code = document.getElementById('verify-code-input').value.trim();
+        if (!code) return;
+        
+        const res = await fetch('/api/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser.username, code: code }) });
+        
+        if (res.ok) {
+            showToast('Email успешно подтвержден! Ограничения сняты.', 'success');
+            document.getElementById('verification-modal').style.display = 'none';
+            localStorage.setItem('resonance_user', JSON.stringify(await res.json()));
+            checkAuth();
+        } else {
+            showToast((await res.json()).error, 'error');
+        }
+    });
+
     function initApp() {
         if (audio) return; 
 
@@ -121,10 +169,13 @@ function checkAuth() {
         
         document.getElementById('request-artist-btn').addEventListener('click', async () => {
             const res = await fetch('/api/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: currentUser.username }) });
-            if (res.ok) { localStorage.setItem('resonance_user', JSON.stringify(await res.json())); checkAuth(); }
+            if (res.ok) { 
+                localStorage.setItem('resonance_user', JSON.stringify(await res.json())); 
+                checkAuth();
+                showToast('Заявка отправлена', 'success');
+            }
         });
 
-        // Навигация
         const sections = {
             home: document.getElementById('tracks-section'), search: document.getElementById('search-section'),
             radio: document.getElementById('radio-section'), library: document.getElementById('library-section'), 
@@ -169,7 +220,6 @@ function checkAuth() {
             filterAndRender(globalTracks.filter(t => t.title.toLowerCase().includes(q) || t.author.toLowerCase().includes(q)), cont);
         });
 
-        // --- ЛОГИКА ТЕГОВ И ПРЕВЬЮ В ФОРМЕ ЗАГРУЗКИ ---
         async function fetchArtists() {
             const r = await fetch('/api/artists');
             allArtists = await r.json();
@@ -241,9 +291,16 @@ function checkAuth() {
             e.preventDefault();
             try {
                 const res = await fetch('/api/upload', { method: 'POST', body: new FormData(e.target) });
-                if (res.ok) { alert('Трек загружен!'); e.target.reset(); prevImg.src = 'https://via.placeholder.com/300/1C1C1E?text=Cover'; updateLivePreview(); loadTracks(); navLinks.home.click(); }
-                else alert('Ошибка');
-            } catch (err) { alert('Ошибка сети'); }
+                if (res.ok) { 
+                    showToast('Трек успешно загружен!', 'success'); 
+                    e.target.reset(); 
+                    prevImg.src = 'https://via.placeholder.com/300/1C1C1E?text=Cover'; 
+                    updateLivePreview(); 
+                    loadTracks(); 
+                    navLinks.home.click(); 
+                }
+                else { showToast('Произошла ошибка при загрузке', 'error'); }
+            } catch (err) { showToast('Ошибка сети', 'error'); }
         });
 
         async function loadAdminApps() {
@@ -258,41 +315,38 @@ function checkAuth() {
             });
             tbody.querySelectorAll('.btn-approve').forEach(b => b.onclick = async (e) => {
                 await fetch('/api/admin/resolve', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: e.target.dataset.u, action: 'approve'})}); loadAdminApps();
+                showToast('Заявка одобрена', 'success');
             });
             tbody.querySelectorAll('.btn-reject').forEach(b => b.onclick = async (e) => {
                 const r = prompt("Причина отказа:");
-                if(r) { await fetch('/api/admin/resolve', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: e.target.dataset.u, action: 'reject', reason: r})}); loadAdminApps(); }
+                if(r) { 
+                    await fetch('/api/admin/resolve', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: e.target.dataset.u, action: 'reject', reason: r})}); 
+                    loadAdminApps(); 
+                    showToast('Заявка отклонена', 'info');
+                }
             });
         }
 
-        // ==========================================
-        // ГЛОБАЛЬНЫЙ ОБРАБОТЧИК КЛИКОВ (ФИКС БАГА МЕНЮ И ВНЕДРЕНИЕ РАДИО)
-        // ==========================================
         document.addEventListener('click', async (e) => {
-            // Закрытие профиля
             if (!e.target.closest('#profile-btn')) {
                 const pd = document.getElementById('profile-dropdown');
                 if (pd) pd.classList.remove('active');
             }
 
-            // --- 1. Меню трека (Три точки) ---
             const dots = e.target.closest('.track-dots');
             if (dots) {
                 e.preventDefault();
                 e.stopPropagation();
                 const menu = dots.nextElementSibling;
-                // Закрываем все остальные меню
                 document.querySelectorAll('.track-menu').forEach(m => { if(m !== menu) m.classList.remove('active'); });
                 menu.classList.toggle('active');
                 return;
             }
             
-            // Закрываем меню при клике в пустую область
             if (!e.target.closest('.track-menu')) {
                 document.querySelectorAll('.track-menu').forEach(m => m.classList.remove('active'));
             }
 
-            // --- 2. Действия в меню трека ---
             const menuBtn = e.target.closest('.track-menu button');
             if (menuBtn) {
                 e.stopPropagation();
@@ -300,11 +354,13 @@ function checkAuth() {
                 if (menuBtn.classList.contains('menu-hide')) {
                     await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'toggle_hide'})});
                     loadTracks();
+                    showToast('Видимость трека изменена', 'success');
                 }
                 if (menuBtn.classList.contains('menu-del')) {
                     if(confirm('Удалить трек навсегда?')) { 
                         await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'delete'})}); 
                         loadTracks(); 
+                        showToast('Трек удален', 'info');
                     }
                 }
                 if (menuBtn.classList.contains('menu-edit')) {
@@ -312,13 +368,13 @@ function checkAuth() {
                     if(nt) { 
                         await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'edit_title', NewTitle: nt})}); 
                         loadTracks(); 
+                        showToast('Трек переименован', 'success');
                     }
                 }
                 document.querySelectorAll('.track-menu').forEach(m => m.classList.remove('active'));
                 return;
             }
 
-            // --- 3. Воспроизведение трека ---
             const playBtn = e.target.closest('.play-btn-overlay');
             if (playBtn && !e.target.closest('.radio-card')) {
                 e.stopPropagation();
@@ -328,7 +384,6 @@ function checkAuth() {
                 return;
             }
 
-            // --- 4. Воспроизведение Радио ---
             const radioCard = e.target.closest('.radio-card');
             if (radioCard) {
                 const url = radioCard.dataset.url;
@@ -338,7 +393,6 @@ function checkAuth() {
                 return;
             }
 
-            // --- 5. Профиль артиста ---
             const al = e.target.closest('.artist-link');
             if (al) {
                 e.preventDefault();
@@ -354,9 +408,6 @@ function checkAuth() {
         });
 
 
-        // ==========================================
-        // ПЛЕЕР И ТРЕКИ
-        // ==========================================
         const floatingPlayer = document.getElementById('floating-player');
         const playPauseBtn = document.querySelector('.play-pause');
         const playPauseIcon = playPauseBtn.querySelector('i');
@@ -484,27 +535,25 @@ function checkAuth() {
         });
         
         audio.addEventListener('timeupdate', () => {
-                    if (isLiveRadio) return; 
+            if (isLiveRadio) return; 
 
-                    // === ФИШКА ОГРАНИЧЕНИЯ В 30 СЕКУНД ===
-                    if (currentUser && currentUser.is_verified === false && audio.currentTime >= 30) {
-                        audio.pause();
-                        audio.currentTime = 0;
-                        isPlaying = false;
-                        playPauseIcon.classList.replace('fa-pause', 'fa-play');
-                        
-                        // Показываем модалку
-                        document.getElementById('verification-modal').style.display = 'flex';
-                        return; // Останавливаем выполнение дальнейшего апдейта
-                    }
+            if (currentUser && currentUser.is_verified === false && audio.currentTime >= 30) {
+                audio.pause();
+                audio.currentTime = 0;
+                isPlaying = false;
+                playPauseIcon.classList.replace('fa-pause', 'fa-play');
+                document.getElementById('verification-modal').style.display = 'flex';
+                showToast('Требуется подтверждение почты для полного прослушивания', 'error');
+                return; 
+            }
 
-                    currentTimeEl.textContent = formatTime(audio.currentTime);
-                    if (audio.duration && isFinite(audio.duration)) {
-                        const percent = (audio.currentTime / audio.duration) * 100;
-                        progressSlider.value = percent;
-                        progressSlider.style.background = `linear-gradient(to right, #ffffff ${percent}%, rgba(255,255,255,0.1) ${percent}%)`;
-                    }
-                });
+            currentTimeEl.textContent = formatTime(audio.currentTime);
+            if (audio.duration && isFinite(audio.duration)) {
+                const percent = (audio.currentTime / audio.duration) * 100;
+                progressSlider.value = percent;
+                progressSlider.style.background = `linear-gradient(to right, #ffffff ${percent}%, rgba(255,255,255,0.1) ${percent}%)`;
+            }
+        });
         
         progressSlider.addEventListener('input', (e) => { 
             if (audio.src && !isLiveRadio) audio.currentTime = (e.target.value / 100) * audio.duration; 

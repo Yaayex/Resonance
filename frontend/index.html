@@ -30,7 +30,7 @@
         </div>
     </div>
 
-    <!-- Вставь это сразу после закрывающего </div> блока auth-screen -->
+    <!-- Модальное окно подтверждения почты -->
     <div id="verification-modal" class="modal-overlay" style="display: none;">
         <div class="auth-box">
             <h2 class="auth-logo" style="margin-bottom: 15px;"><i class="fa-solid fa-envelope-circle-check"></i> Подтверждение</h2>
@@ -97,7 +97,6 @@
                 <div class="tracks-container" id="search-results-section" style="margin-top: 30px;"></div>
             </section>
 
-            <!-- НОВАЯ ВКЛАДКА РАДИО -->
             <section id="radio-section" style="display: none;">
                 <div class="radio-grid">
                     <div class="radio-card" data-url="https://ep128.hostingradio.ru:8030/ep128" data-title="Европа Плюс" data-cover="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Europa_Plus_logo.svg/512px-Europa_Plus_logo.svg.png">
@@ -256,6 +255,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Контейнер для всплывающих уведомлений -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script src="js/app.js"></script>
 </body>
