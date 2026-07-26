@@ -1,11 +1,12 @@
 :root {
-    --bg-dark: #050505;
-    --bg-panel: #121212;
-    --bg-elevated: #1a1a1a;
+    --bg-dark: #09090b; 
+    --bg-panel: #18181b;
+    --bg-elevated: #27272a;
     --accent: #8a2be2;
-    --accent-glow: rgba(138, 43, 226, 0.5);
+    --accent-gradient: linear-gradient(135deg, #8a2be2, #c026d3);
+    --accent-glow: rgba(192, 38, 211, 0.4);
     --text-main: #ffffff;
-    --text-muted: #a7a7a7;
+    --text-muted: #a1a1aa;
     --font-family: 'Montserrat', sans-serif;
 }
 
@@ -76,19 +77,19 @@ body {
 .auth-btn {
     width: 100%;
     padding: 14px;
-    background: var(--accent);
+    background: var(--accent-gradient);
     border: none;
     color: white;
     font-weight: bold;
     border-radius: 8px;
     cursor: pointer;
-    transition: 0.3s;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
     margin-bottom: 15px;
 }
 
 .auth-btn:hover {
-    background: #9d4edd;
-    box-shadow: 0 0 15px var(--accent-glow);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px var(--accent-glow);
 }
 
 .auth-switch {
@@ -110,7 +111,9 @@ body {
 }
 
 .sidebar {
-    background-color: var(--bg-dark);
+    background-color: rgba(9, 9, 11, 0.85);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
     padding: 24px;
     display: flex;
     flex-direction: column;
@@ -310,24 +313,26 @@ body {
 .action-btn {
     width: 100%;
     padding: 14px;
-    background: var(--accent);
+    background: var(--accent-gradient);
     border: none;
     color: white;
     font-weight: bold;
     border-radius: 8px;
     cursor: pointer;
-    transition: 0.3s;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
 }
 
 .action-btn:hover:not(:disabled) {
-    background: #9d4edd;
-    box-shadow: 0 0 15px var(--accent-glow);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px var(--accent-glow);
 }
 
 .action-btn:disabled {
     background: #444;
     cursor: not-allowed;
     color: #888;
+    transform: none;
+    box-shadow: none;
 }
 
 /* Студия: Сетка формы и превью */
@@ -430,10 +435,11 @@ body {
 }
 
 .track-card {
-    background-color: var(--bg-panel);
+    background-color: rgba(24, 24, 27, 0.6);
+    backdrop-filter: blur(10px);
     padding: 14px;
     border-radius: 12px;
-    transition: 0.3s;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     cursor: pointer;
     border: 1px solid rgba(255,255,255,0.02);
     position: relative;
@@ -446,8 +452,9 @@ body {
 
 .track-card:hover {
     background-color: var(--bg-elevated);
-    transform: translateY(-4px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.5), 0 0 20px rgba(138, 43, 226, 0.15);
+    border-color: rgba(138, 43, 226, 0.4);
 }
 
 .track-cover {
@@ -663,15 +670,15 @@ body {
     width: calc(100% - 40px);
     max-width: 950px;
     border-radius: 18px;
-    background: rgba(18, 18, 18, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(24, 24, 27, 0.7);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 12px 25px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(138, 43, 226, 0.1);
     z-index: 500;
     transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
 }

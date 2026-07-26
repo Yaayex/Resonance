@@ -1,17 +1,5 @@
 [
   {
-    "id": "t_1784924805",
-    "title": "My Track #1",
-    "author": "Индия \u0026 Xcho \u0026 MOT",
-    "collaborators": null,
-    "feats": null,
-    "cover": "https://bipbap.ru/wp-content/uploads/2017/04/0_7c779_5df17311_orig.jpg",
-    "file_name": "t_1784924805",
-    "plays": 1,
-    "hidden": false,
-    "release_date": 0
-  },
-  {
     "id": "t_1784925810",
     "title": "kljkljkl",
     "author": "yaayex",
@@ -25,7 +13,7 @@
     ],
     "cover": "/covers/t_1784925810.png",
     "file_name": "t_1784925810",
-    "plays": 1,
+    "plays": 2,
     "hidden": false,
     "release_date": 0
   }
