@@ -1,27 +1,14 @@
 [
   {
-    "id": "t_1785031940",
-    "title": "Midnight Phonk",
+    "id": "t_1785067383",
+    "title": "jkhjjk",
     "author": "yaayex",
     "collaborators": null,
     "feats": null,
-    "genre": "",
-    "cover": "/covers/t_1785031940.jpg",
-    "file_name": "t_1785031940",
-    "plays": 3,
-    "hidden": false,
-    "release_date": 0
-  },
-  {
-    "id": "t_1785065889",
-    "title": "hjghjghj",
-    "author": "yaayex",
-    "collaborators": null,
-    "feats": null,
-    "genre": "Всё подряд",
-    "cover": "/covers/t_1785065889.jpg",
-    "file_name": "t_1785065889",
-    "plays": 5,
+    "genre": "test",
+    "cover": "/covers/t_1785067383.jpg",
+    "file_name": "t_1785067383",
+    "plays": 1,
     "hidden": false,
     "release_date": 0
   }

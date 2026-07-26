@@ -5,7 +5,7 @@
     "email": "0def1x.yt@gmail.com",
     "password": "123",
     "role": "admin",
-    "app_status": "rejected",
+    "app_status": "approved",
     "app_history": [
       {
         "status": "Отклонено",
