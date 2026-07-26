@@ -4,9 +4,15 @@
     "username": "yaayex",
     "email": "0def1x.yt@gmail.com",
     "password": "123",
-    "role": "user",
-    "app_status": "pending",
-    "app_history": [],
+    "role": "admin",
+    "app_status": "rejected",
+    "app_history": [
+      {
+        "status": "Отклонено",
+        "reason": "idi nah",
+        "date": 1785027495
+      }
+    ],
     "is_verified": true,
     "verification_code": "376079"
   }
