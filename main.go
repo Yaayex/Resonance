@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
+	"net/smtp"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,13 +22,15 @@ type AppRecord struct {
 }
 
 type User struct {
-	ID         string      `json:"id"`
-	Username   string      `json:"username"`
-	Email      string      `json:"email"`
-	Password   string      `json:"password"`
-	Role       string      `json:"role"`
-	AppStatus  string      `json:"app_status"`
-	AppHistory []AppRecord `json:"app_history"`
+	ID               string      `json:"id"`
+	Username         string      `json:"username"`
+	Email            string      `json:"email"`
+	Password         string      `json:"password"`
+	Role             string      `json:"role"`
+	AppStatus        string      `json:"app_status"`
+	AppHistory       []AppRecord `json:"app_history"`
+	IsVerified       bool        `json:"is_verified"`       // Новое поле
+	VerificationCode string      `json:"verification_code"` // Новое поле
 }
 
 type Track struct {
@@ -47,6 +51,10 @@ var (
 	usersPath  = "./storage/users.json"
 	tracksPath = "./storage/db.json"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano()) // Инициализируем генератор случайных чисел
+}
 
 func readUsers() []User {
 	dbMu.RLock()
@@ -80,6 +88,45 @@ func writeTracks(tracks []Track) {
 	os.WriteFile(tracksPath, data, 0644)
 }
 
+// === ФУНКЦИЯ ОТПРАВКИ EMAIL ===
+func sendVerificationEmail(toEmail, code string) {
+	// ВНИМАНИЕ: Вставь сюда свои данные от Gmail!
+	from := "ivan.zaaycev@gmail.com"
+	password := "nltb fuly nriv zbma"
+
+	smtpHost := "smtp.gmail.com"
+	smtpPort := "587"
+
+	// Темный HTML-шаблон в стиле Apple
+	htmlBody := fmt.Sprintf(`
+	<!DOCTYPE html>
+	<html>
+	<body style="background-color: #000000; color: #ffffff; font-family: -apple-system, sans-serif; padding: 40px; text-align: center;">
+		<h1 style="color: #FA243C; margin-bottom: 5px;">Resonance</h1>
+		<p style="color: #8E8E93; font-size: 16px;">Добро пожаловать в систему. Ваш код подтверждения:</p>
+		<div style="background-color: #1C1C1E; color: #FFFFFF; padding: 15px 30px; border-radius: 14px; display: inline-block; font-size: 28px; font-weight: bold; letter-spacing: 6px; margin: 20px 0; border: 1px solid #2C2C2E;">
+			%s
+		</div>
+		<p style="color: #8E8E93; font-size: 13px;">Введите этот код в приложении, чтобы снять ограничение в 30 секунд.</p>
+	</body>
+	</html>`, code)
+
+	msg := []byte("From: Resonance <" + from + ">\r\n" +
+		"To: " + toEmail + "\r\n" +
+		"Subject: Код подтверждения Resonance\r\n" +
+		"MIME-version: 1.0;\r\n" +
+		"Content-Type: text/html; charset=\"UTF-8\";\r\n\r\n" +
+		htmlBody)
+
+	auth := smtp.PlainAuth("", from, password, smtpHost)
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{toEmail}, msg)
+	if err != nil {
+		log.Println("Ошибка отправки email:", err)
+	} else {
+		log.Println("Письмо успешно отправлено на:", toEmail)
+	}
+}
+
 func main() {
 	os.MkdirAll("./storage/audio", os.ModePerm)
 	os.MkdirAll("./storage/covers", os.ModePerm)
@@ -98,6 +145,7 @@ func main() {
 	mux.HandleFunc("/api/tracks", getTracksHandler)
 	mux.HandleFunc("/api/login", loginHandler)
 	mux.HandleFunc("/api/register", registerHandler)
+	mux.HandleFunc("/api/verify", verifyHandler) // Новый эндпоинт
 	mux.HandleFunc("/api/upload", uploadHandler)
 	mux.HandleFunc("/api/apply", applyArtistHandler)
 	mux.HandleFunc("/api/admin/apps", getApplicationsHandler)
@@ -151,12 +199,43 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 	req.ID = fmt.Sprintf("u_%d", time.Now().Unix())
 	req.Role = "user"
 	req.AppStatus = "none"
 	req.AppHistory = []AppRecord{}
+
+	// Генерация 6-значного кода и флаг
+	req.IsVerified = false
+	req.VerificationCode = fmt.Sprintf("%06d", rand.Intn(1000000))
+
 	writeUsers(append(users, req))
+
+	// Отправляем письмо асинхронно, чтобы не тормозить регистрацию
+	go sendVerificationEmail(req.Email, req.VerificationCode)
+
 	json.NewEncoder(w).Encode(req)
+}
+
+// === ОБРАБОТЧИК ПОДТВЕРЖДЕНИЯ ===
+func verifyHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Username, Code string }
+	json.NewDecoder(r.Body).Decode(&req)
+
+	users := readUsers()
+	for i, u := range users {
+		if u.Username == req.Username {
+			if u.VerificationCode == req.Code {
+				users[i].IsVerified = true
+				writeUsers(users)
+				json.NewEncoder(w).Encode(users[i])
+				return
+			}
+			http.Error(w, `{"error": "Неверный код"}`, http.StatusBadRequest)
+			return
+		}
+	}
+	http.Error(w, `{"error": "Пользователь не найден"}`, http.StatusNotFound)
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {

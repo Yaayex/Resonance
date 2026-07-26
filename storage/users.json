@@ -1,44 +1,13 @@
 [
   {
-    "id": "u_1",
-    "username": "admin",
-    "email": "",
-    "password": "123",
-    "role": "admin",
-    "app_status": "",
-    "app_history": null
-  },
-  {
-    "id": "u_2",
-    "username": "listener",
-    "email": "",
-    "password": "password",
-    "role": "user",
-    "app_status": "",
-    "app_history": null
-  },
-  {
-    "id": "u_1784925459",
+    "id": "u_1785027384",
     "username": "yaayex",
-    "email": "yaayex@gmail.com",
-    "password": "123123",
-    "role": "artist",
-    "app_status": "approved",
-    "app_history": null
-  },
-  {
-    "id": "u_1784926350",
-    "username": "123123",
-    "email": "123123@gmasi.com",
-    "password": "123123",
+    "email": "0def1x.yt@gmail.com",
+    "password": "123",
     "role": "user",
-    "app_status": "rejected",
-    "app_history": [
-      {
-        "status": "Отклонено",
-        "reason": "иди нахуй",
-        "date": 1784926361
-      }
-    ]
+    "app_status": "none",
+    "app_history": [],
+    "is_verified": true,
+    "verification_code": "376079"
   }
 ]

@@ -30,6 +30,17 @@
         </div>
     </div>
 
+    <!-- Вставь это сразу после закрывающего </div> блока auth-screen -->
+    <div id="verification-modal" class="modal-overlay" style="display: none;">
+        <div class="auth-box">
+            <h2 class="auth-logo" style="margin-bottom: 15px;"><i class="fa-solid fa-envelope-circle-check"></i> Подтверждение</h2>
+            <p class="auth-subtitle" style="margin-bottom: 20px;">Мы отправили код на твой email. Введи его, чтобы снять ограничение на 30 секунд.</p>
+            <input type="text" id="verify-code-input" placeholder="000000" style="text-align: center; font-size: 20px; letter-spacing: 4px; font-weight: bold;">
+            <button class="auth-btn" id="verify-submit-btn">Подтвердить почту</button>
+            <button class="auth-btn" id="verify-close-btn" style="background: rgba(255,255,255,0.1); color: #8E8E93; margin-bottom: 0;">Закрыть</button>
+        </div>
+    </div>
+
     <div id="main-app" class="app-container">
         <header class="mobile-header">
             <div class="logo"><i class="fa-solid fa-wave-square"></i> Resonance</div>

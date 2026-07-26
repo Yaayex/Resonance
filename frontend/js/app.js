@@ -12,17 +12,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let isLiveRadio = false;
 
     // --- ПРОВЕРКА ВХОДА И НАСТРОЙКИ UI ---
-    function checkAuth() {
+function checkAuth() {
         const userData = localStorage.getItem('resonance_user');
         if (userData) {
             currentUser = JSON.parse(userData);
             authScreen.style.display = 'none';
             mainApp.style.display = 'grid';
             
-            document.getElementById('user-profile-name').textContent = currentUser.username;
+            // Если пользователь не верифицирован, добавляем плашку рядом с именем
+            let nameHtml = currentUser.username;
+            if (currentUser.is_verified === false) {
+                nameHtml += `<span class="unverified-badge" id="open-verify-modal" title="Нажмите, чтобы подтвердить" style="cursor:pointer;">Не подтвержден</span>`;
+            }
+            document.getElementById('user-profile-name').innerHTML = nameHtml;
+            
+            if (document.getElementById('open-verify-modal')) {
+                document.getElementById('open-verify-modal').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.getElementById('verification-modal').style.display = 'flex';
+                });
+            }
+
             document.getElementById('set-username').value = currentUser.username;
             document.getElementById('set-email').value = currentUser.email || '';
             
+            // ... остальной код из старой checkAuth (роли, админки, студия) ...
             const adminAuthorInput = document.getElementById('up-author');
             if(adminAuthorInput) adminAuthorInput.value = currentUser.username;
 
@@ -42,32 +56,38 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 rankBadge.textContent = 'Слушатель'; rankBadge.style.color = '#8E8E93';
                 navUpload.style.display = 'none'; navAdmin.style.display = 'none';
-                
-                if (currentUser.app_status === 'pending') {
-                    statusBox.textContent = 'Заявка на рассмотрении.';
-                    statusBox.className = 'status-box status-pending'; reqBtn.disabled = true; reqBtn.textContent = 'Ожидайте';
-                } else if (currentUser.app_status === 'rejected') {
-                    statusBox.textContent = 'Заявка отклонена. Посмотрите историю ниже.';
-                    statusBox.className = 'status-box status-rejected'; reqBtn.disabled = false; reqBtn.textContent = 'Подать снова';
-                } else {
-                    statusBox.style.display = 'none'; reqBtn.disabled = false;
-                }
             }
-
-            histList.innerHTML = '';
-            if (currentUser.app_history && currentUser.app_history.length > 0) {
-                currentUser.app_history.forEach(rec => {
-                    const d = new Date(rec.date * 1000).toLocaleDateString();
-                    const cls = rec.status === 'Одобрено' ? 'approved' : 'rejected';
-                    histList.innerHTML += `<div class="history-item ${cls}"><b>${d} - ${rec.status}</b><br>${rec.reason}</div>`;
-                });
-            } else { histList.innerHTML = 'Истории пока нет'; }
-
+            
             initApp();
         } else {
             authScreen.style.display = 'flex'; mainApp.style.display = 'none';
         }
     }
+
+    // Обработка кнопки модалки верификации
+    document.getElementById('verify-close-btn').addEventListener('click', () => {
+        document.getElementById('verification-modal').style.display = 'none';
+    });
+
+    document.getElementById('verify-submit-btn').addEventListener('click', async () => {
+        const code = document.getElementById('verify-code-input').value.trim();
+        if (!code) return;
+        
+        const res = await fetch('/api/verify', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ username: currentUser.username, code: code }) 
+        });
+        
+        if (res.ok) {
+            alert('Email успешно подтвержден! Ограничения сняты.');
+            document.getElementById('verification-modal').style.display = 'none';
+            localStorage.setItem('resonance_user', JSON.stringify(await res.json()));
+            checkAuth();
+        } else {
+            alert((await res.json()).error);
+        }
+    });
 
     async function apiRequest(url, body) {
         const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -464,14 +484,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         audio.addEventListener('timeupdate', () => {
-            if (isLiveRadio) return; // Для радио ползунок не двигаем
-            currentTimeEl.textContent = formatTime(audio.currentTime);
-            if (audio.duration && isFinite(audio.duration)) {
-                const percent = (audio.currentTime / audio.duration) * 100;
-                progressSlider.value = percent;
-                progressSlider.style.background = `linear-gradient(to right, #ffffff ${percent}%, rgba(255,255,255,0.1) ${percent}%)`;
-            }
-        });
+                    if (isLiveRadio) return; 
+
+                    // === ФИШКА ОГРАНИЧЕНИЯ В 30 СЕКУНД ===
+                    if (currentUser && currentUser.is_verified === false && audio.currentTime >= 30) {
+                        audio.pause();
+                        audio.currentTime = 0;
+                        isPlaying = false;
+                        playPauseIcon.classList.replace('fa-pause', 'fa-play');
+                        
+                        // Показываем модалку
+                        document.getElementById('verification-modal').style.display = 'flex';
+                        return; // Останавливаем выполнение дальнейшего апдейта
+                    }
+
+                    currentTimeEl.textContent = formatTime(audio.currentTime);
+                    if (audio.duration && isFinite(audio.duration)) {
+                        const percent = (audio.currentTime / audio.duration) * 100;
+                        progressSlider.value = percent;
+                        progressSlider.style.background = `linear-gradient(to right, #ffffff ${percent}%, rgba(255,255,255,0.1) ${percent}%)`;
+                    }
+                });
         
         progressSlider.addEventListener('input', (e) => { 
             if (audio.src && !isLiveRadio) audio.currentTime = (e.target.value / 100) * audio.duration; 
