@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalTracks = [];
     let currentUser = null;
     let allArtists = [];
+    let isLiveRadio = false;
 
     // --- ПРОВЕРКА ВХОДА И НАСТРОЙКИ UI ---
     function checkAuth() {
@@ -33,13 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const histList = document.getElementById('app-history-list');
 
             if (currentUser.role === 'admin') {
-                rankBadge.textContent = 'Администратор'; rankBadge.style.color = '#ff4d4d';
+                rankBadge.textContent = 'Администратор'; rankBadge.style.color = '#FF453A';
                 navUpload.style.display = 'block'; navAdmin.style.display = 'block'; reqBtn.style.display = 'none';
             } else if (currentUser.role === 'artist') {
-                rankBadge.textContent = 'Артист'; rankBadge.style.color = '#00d2ff';
+                rankBadge.textContent = 'Артист'; rankBadge.style.color = '#0A84FF';
                 navUpload.style.display = 'block'; navAdmin.style.display = 'none'; reqBtn.style.display = 'none';
             } else {
-                rankBadge.textContent = 'Слушатель'; rankBadge.style.color = '#aaa';
+                rankBadge.textContent = 'Слушатель'; rankBadge.style.color = '#8E8E93';
                 navUpload.style.display = 'none'; navAdmin.style.display = 'none';
                 
                 if (currentUser.app_status === 'pending') {
@@ -53,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // История заявок
             histList.innerHTML = '';
             if (currentUser.app_history && currentUser.app_history.length > 0) {
                 currentUser.app_history.forEach(rec => {
@@ -88,9 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (u && e && p) apiRequest('/api/register', { username: u, email: e, password: p });
     });
 
-    // ==========================================
-    // ИНТЕРФЕЙС И ЛОГИКА
-    // ==========================================
     function initApp() {
         if (audio) return; 
 
@@ -99,7 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const profileBtn = document.getElementById('profile-btn');
         profileBtn.addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('profile-dropdown').classList.toggle('active'); });
-        document.addEventListener('click', (e) => { if (!profileBtn.contains(e.target)) document.getElementById('profile-dropdown').classList.remove('active'); });
         
         document.getElementById('drop-logout').addEventListener('click', () => { localStorage.removeItem('resonance_user'); window.location.reload(); });
         
@@ -111,21 +107,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // Навигация
         const sections = {
             home: document.getElementById('tracks-section'), search: document.getElementById('search-section'),
-            library: document.getElementById('library-section'), settings: document.getElementById('settings-section'),
-            upload: document.getElementById('upload-section'), admin: document.getElementById('admin-section'),
-            artist: document.getElementById('artist-profile-section'), staff: document.getElementById('staff-section')
+            radio: document.getElementById('radio-section'), library: document.getElementById('library-section'), 
+            settings: document.getElementById('settings-section'), upload: document.getElementById('upload-section'), 
+            admin: document.getElementById('admin-section'), artist: document.getElementById('artist-profile-section'), 
+            staff: document.getElementById('staff-section')
         };
         const navLinks = {
             home: document.getElementById('nav-home'), search: document.getElementById('nav-search'),
-            library: document.getElementById('nav-library'), upload: document.getElementById('nav-upload'),
-            admin: document.getElementById('nav-admin'), staff: document.getElementById('nav-staff')
+            radio: document.getElementById('nav-radio'), library: document.getElementById('nav-library'), 
+            upload: document.getElementById('nav-upload'), admin: document.getElementById('nav-admin'), 
+            staff: document.getElementById('nav-staff')
         };
 
         function switchSec(nav, sec, title) {
             document.querySelectorAll('.menu a, .role-link a').forEach(el => el.classList.remove('active'));
             Object.values(sections).forEach(s => s.style.display = 'none');
             if(nav) nav.classList.add('active');
-            if(sec) sec.style.display = (sec.id === 'search-section' || sec.id === 'tracks-section' || sec.id === 'artist-profile-section') ? 'grid' : 'block';
+            if(sec) sec.style.display = (sec.id === 'search-section' || sec.id === 'tracks-section' || sec.id === 'radio-section' || sec.id === 'artist-profile-section') ? 'grid' : 'block';
             if(sec.id === 'artist-profile-section') sec.style.display = 'block';
             document.getElementById('page-title').textContent = title;
             document.getElementById('sidebar').classList.remove('open'); 
@@ -135,10 +133,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('drop-home').addEventListener('click', (e) => { e.preventDefault(); navLinks.home.click(); });
         document.getElementById('drop-settings').addEventListener('click', (e) => { e.preventDefault(); switchSec(null, sections.settings, "Настройки"); });
 
-        navLinks.home.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.home, sections.home, "Для вас"); filterAndRender(globalTracks, sections.home); });
+        navLinks.home.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.home, sections.home, "Слушать"); filterAndRender(globalTracks, sections.home); });
         navLinks.search.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.search, sections.search, "Поиск"); document.getElementById('search-input').focus(); });
+        navLinks.radio.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.radio, sections.radio, "Радио"); });
         navLinks.library.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.library, sections.library, "Медиатека"); filterAndRender(globalTracks.filter(t => t.author === currentUser.username), document.getElementById('library-results-section')); });
-        navLinks.staff.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.staff, sections.staff, "Команда проекта"); fetch('/api/staff').then(r=>r.json()).then(s=>{ let h=''; s.forEach(u=>h+=`<div class="staff-card"><div class="avatar-circle large"><i class="fa-solid fa-shield"></i></div><h4>${u.username}</h4><p class="staff-role">Администратор</p></div>`); document.getElementById('staff-grid').innerHTML=h; }); });
+        navLinks.staff.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.staff, sections.staff, "Команда"); fetch('/api/staff').then(r=>r.json()).then(s=>{ let h=''; s.forEach(u=>h+=`<div class="staff-card"><div class="avatar-circle large"><i class="fa-solid fa-shield"></i></div><h4>${u.username}</h4><p class="staff-role">Администратор</p></div>`); document.getElementById('staff-grid').innerHTML=h; }); });
         
         if(navLinks.upload) navLinks.upload.addEventListener('click', (e) => { e.preventDefault(); fetchArtists(); switchSec(navLinks.upload, sections.upload, "Студия"); });
         if(navLinks.admin) navLinks.admin.addEventListener('click', (e) => { e.preventDefault(); switchSec(navLinks.admin, sections.admin, "Управление"); loadAdminApps(); });
@@ -193,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setupTagInput('collabs-input', 'collabs-autocomplete', 'collabs-hidden', 'collabs-container');
         setupTagInput('feats-input', 'feats-autocomplete', 'feats-hidden', 'feats-container');
 
-        // Живое превью
         const upTitle = document.getElementById('up-title');
         const upCover = document.getElementById('up-cover');
         const prevTitle = document.getElementById('preview-title');
@@ -223,13 +221,11 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             try {
                 const res = await fetch('/api/upload', { method: 'POST', body: new FormData(e.target) });
-                if (res.ok) { alert('Трек загружен!'); e.target.reset(); prevImg.src = 'https://via.placeholder.com/300/222?text=Cover'; updateLivePreview(); loadTracks(); navLinks.home.click(); }
+                if (res.ok) { alert('Трек загружен!'); e.target.reset(); prevImg.src = 'https://via.placeholder.com/300/1C1C1E?text=Cover'; updateLivePreview(); loadTracks(); navLinks.home.click(); }
                 else alert('Ошибка');
             } catch (err) { alert('Ошибка сети'); }
         });
 
-
-        // --- АДМИНКА (Заявки) ---
         async function loadAdminApps() {
             const res = await fetch('/api/admin/apps');
             const apps = await res.json();
@@ -248,6 +244,95 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(r) { await fetch('/api/admin/resolve', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: e.target.dataset.u, action: 'reject', reason: r})}); loadAdminApps(); }
             });
         }
+
+        // ==========================================
+        // ГЛОБАЛЬНЫЙ ОБРАБОТЧИК КЛИКОВ (ФИКС БАГА МЕНЮ И ВНЕДРЕНИЕ РАДИО)
+        // ==========================================
+        document.addEventListener('click', async (e) => {
+            // Закрытие профиля
+            if (!e.target.closest('#profile-btn')) {
+                const pd = document.getElementById('profile-dropdown');
+                if (pd) pd.classList.remove('active');
+            }
+
+            // --- 1. Меню трека (Три точки) ---
+            const dots = e.target.closest('.track-dots');
+            if (dots) {
+                e.preventDefault();
+                e.stopPropagation();
+                const menu = dots.nextElementSibling;
+                // Закрываем все остальные меню
+                document.querySelectorAll('.track-menu').forEach(m => { if(m !== menu) m.classList.remove('active'); });
+                menu.classList.toggle('active');
+                return;
+            }
+            
+            // Закрываем меню при клике в пустую область
+            if (!e.target.closest('.track-menu')) {
+                document.querySelectorAll('.track-menu').forEach(m => m.classList.remove('active'));
+            }
+
+            // --- 2. Действия в меню трека ---
+            const menuBtn = e.target.closest('.track-menu button');
+            if (menuBtn) {
+                e.stopPropagation();
+                const tid = menuBtn.parentElement.dataset.id;
+                if (menuBtn.classList.contains('menu-hide')) {
+                    await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'toggle_hide'})});
+                    loadTracks();
+                }
+                if (menuBtn.classList.contains('menu-del')) {
+                    if(confirm('Удалить трек навсегда?')) { 
+                        await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'delete'})}); 
+                        loadTracks(); 
+                    }
+                }
+                if (menuBtn.classList.contains('menu-edit')) {
+                    const nt = prompt("Новое название:");
+                    if(nt) { 
+                        await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'edit_title', NewTitle: nt})}); 
+                        loadTracks(); 
+                    }
+                }
+                document.querySelectorAll('.track-menu').forEach(m => m.classList.remove('active'));
+                return;
+            }
+
+            // --- 3. Воспроизведение трека ---
+            const playBtn = e.target.closest('.play-btn-overlay');
+            if (playBtn && !e.target.closest('.radio-card')) {
+                e.stopPropagation();
+                const trackId = playBtn.dataset.play;
+                const track = globalTracks.find(t => t.id === trackId);
+                if (track) playTrack(track);
+                return;
+            }
+
+            // --- 4. Воспроизведение Радио ---
+            const radioCard = e.target.closest('.radio-card');
+            if (radioCard) {
+                const url = radioCard.dataset.url;
+                const title = radioCard.dataset.title;
+                const cover = radioCard.dataset.cover;
+                playRadio(url, title, cover);
+                return;
+            }
+
+            // --- 5. Профиль артиста ---
+            const al = e.target.closest('.artist-link');
+            if (al) {
+                e.preventDefault();
+                e.stopPropagation();
+                switchSec(null, sections.artist, "Профиль артиста");
+                document.getElementById('artist-profile-name').textContent = al.dataset.name;
+                const r = await fetch(`/api/artist?name=${encodeURIComponent(al.dataset.name)}`);
+                const d = await r.json();
+                document.getElementById('artist-profile-stats').textContent = `${d.total_tracks} треков • ${d.total_plays} прослушиваний`;
+                filterAndRender(d.tracks, document.getElementById('artist-tracks-container'));
+                return;
+            }
+        });
+
 
         // ==========================================
         // ПЛЕЕР И ТРЕКИ
@@ -277,7 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return html;
         }
 
-        // Фильтрация (отложенные и скрытые)
         function filterAndRender(tracksList, container) {
             const now = Math.floor(Date.now() / 1000);
             const visible = tracksList.filter(t => {
@@ -291,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function renderTracks(tracksList, container) {
             container.innerHTML = ''; 
-            if (tracksList.length === 0) { container.innerHTML = '<p class="section-desc" style="grid-column: 1/-1;">Здесь пока ничего нет</p>'; return; }
+            if (tracksList.length === 0) { container.innerHTML = '<p class="section-desc" style="grid-column: 1/-1; color: #8E8E93;">Здесь пока ничего нет</p>'; return; }
 
             const now = Math.floor(Date.now() / 1000);
 
@@ -302,16 +386,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 let adminHtml = '';
                 let statusHtml = '';
                 
-                if (track.release_date > now) statusHtml = `<div style="position:absolute; top:10px; left:10px; background:rgba(255,165,0,0.8); color:white; font-size:10px; padding:2px 6px; border-radius:4px; z-index:4;">Отложен</div>`;
-                if (track.hidden) statusHtml += `<div style="position:absolute; top:30px; left:10px; background:rgba(255,0,0,0.8); color:white; font-size:10px; padding:2px 6px; border-radius:4px; z-index:4;">Скрыт</div>`;
+                if (track.release_date > now) statusHtml = `<div class="status-badge" style="background:#FF9F0A;">Отложен</div>`;
+                if (track.hidden) statusHtml += `<div class="status-badge" style="background:#FF453A; top:30px;">Скрыт</div>`;
 
                 if (currentUser.role === 'admin') {
                     adminHtml = `
                         <button class="track-dots"><i class="fa-solid fa-ellipsis"></i></button>
                         <div class="track-menu" data-id="${track.id}">
-                            <button class="menu-edit"><i class="fa-solid fa-pen"></i> Переименовать</button>
-                            <button class="menu-hide"><i class="fa-solid fa-eye-slash"></i> Скрыть/Показать</button>
-                            <button class="menu-del" style="color:#ff4d4d;"><i class="fa-solid fa-trash"></i> Удалить</button>
+                            <button class="menu-edit"><i class="fa-solid fa-pen"></i> Изменить</button>
+                            <button class="menu-hide"><i class="fa-solid fa-eye-slash"></i> Видимость</button>
+                            <button class="menu-del" style="color:#FF453A;"><i class="fa-solid fa-trash"></i> Удалить</button>
                         </div>
                     `;
                 }
@@ -326,67 +410,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="track-info">
                         <h3>${track.title}</h3>
                         <p>${formatAuthors(track)}</p>
-                        <p style="font-size: 11px; margin-top: 5px; opacity: 0.5;"><i class="fa-solid fa-headphones"></i> ${track.plays}</p>
                     </div>
                 `;
                 container.appendChild(card);
             });
-
-            // БАГФИКС МЕНЮ ТРЕКОВ ЗДЕСЬ (вешаем слушатель один раз)
-            if (!container.dataset.listenerAttached) {
-                container.addEventListener('click', async (e) => {
-                    const al = e.target.closest('.artist-link');
-                    if (al) {
-                        switchSec(null, sections.artist, "Профиль артиста");
-                        document.getElementById('artist-profile-name').textContent = al.dataset.name;
-                        const r = await fetch(`/api/artist?name=${encodeURIComponent(al.dataset.name)}`);
-                        const d = await r.json();
-                        document.getElementById('artist-profile-stats').textContent = `${d.total_tracks} треков • ${d.total_plays} прослушиваний`;
-                        filterAndRender(d.tracks, document.getElementById('artist-tracks-container'));
-                        return;
-                    }
-                    
-                    const dots = e.target.closest('.track-dots');
-                    if (dots) {
-                        e.stopPropagation();
-                        const menu = dots.nextElementSibling;
-                        document.querySelectorAll('.track-menu').forEach(m => { if(m!==menu) m.classList.remove('active') });
-                        menu.classList.toggle('active');
-                        return;
-                    }
-
-                    const btn = e.target.closest('button');
-                    if (btn && btn.parentElement.classList.contains('track-menu')) {
-                        e.stopPropagation();
-                        const tid = btn.parentElement.dataset.id;
-                        if (btn.classList.contains('menu-hide')) {
-                            await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'toggle_hide'})});
-                            loadTracks();
-                        }
-                        if (btn.classList.contains('menu-del')) {
-                            if(confirm('Точно удалить трек?')) { await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'delete'})}); loadTracks(); }
-                        }
-                        if (btn.classList.contains('menu-edit')) {
-                            const nt = prompt("Новое название трека:");
-                            if(nt) { await fetch('/api/admin/track', { method:'POST', body:JSON.stringify({TrackID: tid, Action: 'edit_title', NewTitle: nt})}); loadTracks(); }
-                        }
-                        return;
-                    }
-
-                    const card = e.target.closest('.track-card');
-                    if (card && e.target.closest('.play-btn-overlay')) {
-                        const trackId = card.querySelector('.play-btn-overlay').dataset.play;
-                        const track = globalTracks.find(t => t.id === trackId);
-                        if(track) playTrack(track);
-                    }
-                });
-                container.dataset.listenerAttached = "true";
-            }
         }
         
-        document.addEventListener('click', (e) => { if(!e.target.closest('.track-dots')) document.querySelectorAll('.track-menu').forEach(m => m.classList.remove('active')); });
-
         function playTrack(track) {
+            isLiveRadio = false;
             audio.src = `/api/stream?id=${track.file_name}`;
             document.getElementById('player-cover').src = track.cover;
             document.getElementById('player-title').textContent = track.title;
@@ -394,28 +425,62 @@ document.addEventListener('DOMContentLoaded', () => {
             if(track.collaborators && track.collaborators.length) rawAuthors += ' & ' + track.collaborators.join(' & ');
             if(track.feats && track.feats.length) rawAuthors += ' feat. ' + track.feats.join(', ');
             document.getElementById('player-author').textContent = rawAuthors;
-            floatingPlayer.classList.add('active'); audio.play(); isPlaying = true; playPauseIcon.classList.replace('fa-circle-play', 'fa-circle-pause');
+            floatingPlayer.classList.add('active'); 
+            audio.play(); 
+            isPlaying = true; 
+            playPauseIcon.classList.replace('fa-play', 'fa-pause');
+            progressSlider.disabled = false;
+        }
+
+        function playRadio(url, title, cover) {
+            isLiveRadio = true;
+            audio.src = url;
+            document.getElementById('player-cover').src = cover;
+            document.getElementById('player-title').textContent = title;
+            document.getElementById('player-author').textContent = "Прямой эфир (LIVE)";
+            floatingPlayer.classList.add('active'); 
+            audio.play(); 
+            isPlaying = true; 
+            playPauseIcon.classList.replace('fa-play', 'fa-pause');
+            
+            progressSlider.value = 100;
+            progressSlider.style.background = `linear-gradient(to right, #0A84FF 100%, rgba(255,255,255,0.1) 100%)`;
+            progressSlider.disabled = true;
+            currentTimeEl.textContent = "";
+            totalTimeEl.textContent = "LIVE";
         }
 
         playPauseBtn.addEventListener('click', () => {
             if (!audio.src) return; 
-            if (isPlaying) { audio.pause(); playPauseIcon.classList.replace('fa-circle-pause', 'fa-circle-play'); } 
-            else { audio.play(); playPauseIcon.classList.replace('fa-circle-play', 'fa-circle-pause'); }
+            if (isPlaying) { audio.pause(); playPauseIcon.classList.replace('fa-pause', 'fa-play'); } 
+            else { audio.play(); playPauseIcon.classList.replace('fa-play', 'fa-pause'); }
             isPlaying = !isPlaying;
         });
 
-        function formatTime(sec) { if (isNaN(sec)) return "0:00"; return `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`; }
-        audio.addEventListener('loadedmetadata', () => { totalTimeEl.textContent = formatTime(audio.duration); });
+        function formatTime(sec) { if (isNaN(sec) || !isFinite(sec)) return "0:00"; return `${Math.floor(sec / 60)}:${Math.floor(sec % 60).toString().padStart(2, '0')}`; }
+        
+        audio.addEventListener('loadedmetadata', () => { 
+            if (!isLiveRadio) totalTimeEl.textContent = formatTime(audio.duration); 
+        });
+        
         audio.addEventListener('timeupdate', () => {
+            if (isLiveRadio) return; // Для радио ползунок не двигаем
             currentTimeEl.textContent = formatTime(audio.currentTime);
-            if (audio.duration) {
+            if (audio.duration && isFinite(audio.duration)) {
                 const percent = (audio.currentTime / audio.duration) * 100;
                 progressSlider.value = percent;
-                progressSlider.style.background = `linear-gradient(to right, #8a2be2 ${percent}%, rgba(255,255,255,0.1) ${percent}%)`;
+                progressSlider.style.background = `linear-gradient(to right, #ffffff ${percent}%, rgba(255,255,255,0.1) ${percent}%)`;
             }
         });
-        progressSlider.addEventListener('input', (e) => { if (audio.src) audio.currentTime = (e.target.value / 100) * audio.duration; });
-        document.querySelector('.volume-slider').addEventListener('input', (e) => { audio.volume = e.target.value / 100; e.target.style.background = `linear-gradient(to right, #fff ${e.target.value}%, rgba(255,255,255,0.1) ${e.target.value}%)`; });
+        
+        progressSlider.addEventListener('input', (e) => { 
+            if (audio.src && !isLiveRadio) audio.currentTime = (e.target.value / 100) * audio.duration; 
+        });
+        
+        document.querySelector('.volume-slider').addEventListener('input', (e) => { 
+            audio.volume = e.target.value / 100; 
+            e.target.style.background = `linear-gradient(to right, #ffffff ${e.target.value}%, rgba(255,255,255,0.1) ${e.target.value}%)`; 
+        });
         document.querySelector('.volume-slider').dispatchEvent(new Event('input'));
 
         loadTracks();
