@@ -1,3 +1,5 @@
+![Работа](screenshots/1.png)
+
 # 🎵 Resonance
 
 **Resonance** — это современная, минималистичная и быстрая музыкальная стриминговая платформа, написанная на чистом Go (Standard Library) и Vanilla JavaScript.

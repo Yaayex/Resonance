@@ -2,7 +2,7 @@
   {
     "id": "u_1785027384",
     "username": "yaayex",
-    "email": "0def1x.yt@gmail.com",
+    "email": "achacoffee2@gmail.com",
     "password": "123",
     "role": "admin",
     "app_status": "approved",
@@ -13,8 +13,8 @@
         "date": 1785027495
       }
     ],
-    "is_verified": true,
-    "verification_code": "376079",
+    "is_verified": false,
+    "verification_code": "693532",
     "liked_tracks": [
       "t_1785065889",
       "t_1785031940"

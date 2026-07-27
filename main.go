@@ -91,7 +91,7 @@ func writeTracks(tracks []Track) {
 }
 
 func sendVerificationEmail(toEmail, code string) {
-	from := "ТВОЙ_GMAIL@gmail.com"
+	from := "0def1x.yt@gmail.com"
 	password := "ТВОЙ_ПАРОЛЬ_ПРИЛОЖЕНИЙ"
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
